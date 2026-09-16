@@ -1,5 +1,6 @@
 import type { Job, JobFilterParams, JobStats, PaginatedJobs } from "../types/job";
 import type { IJobDataSource } from "./dataSource.interface";
+import { CITY_QUERY_MAP, UF_QUERY_MAP } from "./locationConstants";
 import { MOCK_JOBS } from "./mockJobs";
 
 export class MockJobDataSource implements IJobDataSource {
@@ -26,7 +27,7 @@ export class MockJobDataSource implements IJobDataSource {
           j.title.toLowerCase().includes(q) ||
           j.company.toLowerCase().includes(q) ||
           j.location.toLowerCase().includes(q) ||
-          j.stack.some((s) => s.toLowerCase().includes(q))
+          j.stack.some((s) => s.toLowerCase().includes(q)),
       );
     }
 
@@ -65,6 +66,42 @@ export class MockJobDataSource implements IJobDataSource {
           SP_REGION_REGEX.test(j.location)
         );
       });
+    } else if (location === "INTERNACIONAL") {
+      filtered = filtered.filter((j) => {
+        const locLower = (j.location || "").toLowerCase();
+        return (
+          !locLower.includes("brasil") &&
+          !locLower.includes("brazil") &&
+          !locLower.includes(", br") &&
+          !SP_REGION_REGEX.test(j.location)
+        );
+      });
+    } else if (location.startsWith("CITY_") && CITY_QUERY_MAP[location]) {
+      const cleanTerms = CITY_QUERY_MAP[location].map((t) =>
+        t.replace(/\*/g, "").toLowerCase()
+      );
+      filtered = filtered.filter((j) => {
+        const loc = (j.location || "").toLowerCase();
+        return cleanTerms.some((term) => loc.includes(term));
+      });
+    } else if (location.startsWith("UF_") && UF_QUERY_MAP[location]) {
+      const { uf, names } = UF_QUERY_MAP[location];
+      const cleanNames = names.map((n) => n.replace(/\*/g, "").toLowerCase());
+      const ufLower = uf.toLowerCase();
+      filtered = filtered.filter((j) => {
+        const loc = (j.location || "").toLowerCase();
+        if (uf === "SP" && (loc.includes("spain") || loc.includes("madrid"))) {
+          return false;
+        }
+        if (
+          loc.includes(`, ${ufLower}`) ||
+          loc.includes(`- ${ufLower}`) ||
+          loc.includes(`/${ufLower}`)
+        ) {
+          return true;
+        }
+        return cleanNames.some((n) => loc.includes(n));
+      });
     } else if (location && location !== "ALL") {
       const locQ = location.toLowerCase();
       filtered = filtered.filter((j) =>
@@ -78,15 +115,11 @@ export class MockJobDataSource implements IJobDataSource {
 
     if (stack && stack.trim()) {
       const st = stack.toLowerCase().trim();
-      filtered = filtered.filter((j) =>
-        j.stack.some((s) => s.toLowerCase().includes(st))
-      );
+      filtered = filtered.filter((j) => j.stack.some((s) => s.toLowerCase().includes(st)));
     }
 
     // Ordenar por data mais recente
-    filtered.sort(
-      (a, b) => new Date(b.scrapedAt).getTime() - new Date(a.scrapedAt).getTime()
-    );
+    filtered.sort((a, b) => new Date(b.scrapedAt).getTime() - new Date(a.scrapedAt).getTime());
 
     const total = filtered.length;
     const totalPages = Math.ceil(total / pageSize) || 1;

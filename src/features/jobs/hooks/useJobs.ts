@@ -135,7 +135,17 @@ export function useJobs(pageSize = 12): UseJobsReturn {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, seniority, workModel, location, stack, page, pageSize, stats, popularStacks.length]);
+  }, [
+    debouncedSearch,
+    seniority,
+    workModel,
+    location,
+    stack,
+    page,
+    pageSize,
+    stats,
+    popularStacks.length,
+  ]);
 
   useEffect(() => {
     fetchJobs();

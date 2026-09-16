@@ -1,7 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { Job, JobFilterParams, JobStats, PaginatedJobs } from "../types/job";
 import type { IJobDataSource } from "./dataSource.interface";
+import { CITY_QUERY_MAP, UF_QUERY_MAP } from "./locationConstants";
 
 export class SupabaseJobDataSource implements IJobDataSource {
   private client: SupabaseClient | null = null;
@@ -22,7 +23,9 @@ export class SupabaseJobDataSource implements IJobDataSource {
 
   public async getJobs(params: JobFilterParams = {}): Promise<PaginatedJobs> {
     if (!this.client) {
-      throw new Error("Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
+      throw new Error(
+        "Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.",
+      );
     }
 
     const {
@@ -43,7 +46,7 @@ export class SupabaseJobDataSource implements IJobDataSource {
     if (search.trim()) {
       const q = search.trim();
       query = query.or(
-        `title.ilike.%${q}%,company.ilike.%${q}%,location.ilike.%${q}%,description.ilike.%${q}%`
+        `title.ilike.%${q}%,company.ilike.%${q}%,location.ilike.%${q}%,description.ilike.%${q}%`,
       );
     }
 
@@ -55,17 +58,44 @@ export class SupabaseJobDataSource implements IJobDataSource {
       query = query.eq("work_model", workModel);
     }
 
-    // Filtro de localidade (São Paulo e Região / Campinas)
+    // Filtro de localidade (São Paulo e Região, Cidades ou Estados)
     if (location === "SP_REGION") {
       query = query
         .or(
-          'location.ilike."*São Paulo*",location.ilike."*Sao Paulo*",location.ilike."*Campinas*",location.ilike."*, SP*",location.ilike."*- SP*",location.ilike."*/SP*",location.ilike."*Barueri*",location.ilike."*Osasco*",location.ilike."*Santo André*",location.ilike."*São Bernardo*",location.ilike."*São Caetano*",location.ilike."*Sorocaba*",location.ilike."*Jundiaí*",location.ilike."*Ribeirão Preto*",location.ilike."*São Carlos*",location.ilike."*Indaiatuba*",location.ilike."*Hortolândia*",location.ilike."*Valinhos*",location.ilike."*Vinhedo*",location.ilike."*Alphaville*",location.ilike."*Guarulhos*",location.ilike."*Santos*"'
+          'location.ilike."*São Paulo*",location.ilike."*Sao Paulo*",location.ilike."*Campinas*",location.ilike."*, SP*",location.ilike."*- SP*",location.ilike."*/SP*",location.ilike."*Barueri*",location.ilike."*Osasco*",location.ilike."*Santo André*",location.ilike."*São Bernardo*",location.ilike."*São Caetano*",location.ilike."*Sorocaba*",location.ilike."*Jundiaí*",location.ilike."*Ribeirão Preto*",location.ilike."*São Carlos*",location.ilike."*Indaiatuba*",location.ilike."*Hortolândia*",location.ilike."*Valinhos*",location.ilike."*Vinhedo*",location.ilike."*Alphaville*",location.ilike."*Guarulhos*",location.ilike."*Santos*"',
         )
         .not("location", "ilike", "%Spain%");
     } else if (location === "BRASIL") {
-      query = query.or(
-        'location.ilike."*Brasil*",location.ilike."*Brazil*",location.ilike."*, BR*",location.ilike."*São Paulo*",location.ilike."*Campinas*"'
-      );
+      query = query
+        .or(
+          'location.ilike."*Brasil*",location.ilike."*Brazil*",location.ilike."*, BR*",location.ilike."*São Paulo*",location.ilike."*Campinas*"',
+        )
+        .not("location", "ilike", "%Spain%");
+    } else if (location === "INTERNACIONAL") {
+      query = query
+        .not("location", "ilike", "%Brasil%")
+        .not("location", "ilike", "%Brazil%")
+        .not("location", "ilike", "%, BR%")
+        .not("location", "ilike", "%São Paulo%")
+        .not("location", "ilike", "%Campinas%");
+    } else if (location.startsWith("CITY_") && CITY_QUERY_MAP[location]) {
+      const patterns = CITY_QUERY_MAP[location]
+        .map((p) => `location.ilike."${p}"`)
+        .join(",");
+      query = query.or(patterns);
+    } else if (location.startsWith("UF_") && UF_QUERY_MAP[location]) {
+      const { uf, names } = UF_QUERY_MAP[location];
+      const patterns = [
+        `location.ilike."*, ${uf}*"`,
+        `location.ilike."*- ${uf}*"`,
+        `location.ilike."*/${uf}*"`,
+        `location.ilike."*${uf},*"`,
+        ...names.map((n) => `location.ilike."${n}"`),
+      ].join(",");
+      query = query.or(patterns);
+      if (uf === "SP") {
+        query = query.not("location", "ilike", "%Spain%");
+      }
     } else if (location && location !== "ALL") {
       query = query.ilike("location", `%${location}%`);
     }

@@ -1,6 +1,7 @@
 import { Filter, MapPin, RotateCcw, Search, Sparkles } from "lucide-react";
-import type { SeniorityLevel, WorkModel } from "../../../types/job";
 import { Button } from "../../../components/Button/Button";
+import type { SeniorityLevel, WorkModel } from "../../../types/job";
+import { LOCATION_SELECT_GROUPS } from "../../../services/locationConstants";
 
 interface JobFiltersProps {
   search: string;
@@ -17,12 +18,6 @@ interface JobFiltersProps {
   totalResults: number;
   onClear: () => void;
 }
-
-const LOCATION_OPTIONS: { label: string; value: string }[] = [
-  { label: "📍 São Paulo e Região (inclui Campinas)", value: "SP_REGION" },
-  { label: "🌐 Todas as localidades", value: "ALL" },
-  { label: "🇧🇷 Brasil (Geral)", value: "BRASIL" },
-];
 
 const SENIORITY_OPTIONS: { label: string; value: SeniorityLevel | "ALL" }[] = [
   { label: "Todos os níveis", value: "ALL" },
@@ -108,11 +103,10 @@ export const JobFilters = ({
               <button
                 key={opt.value}
                 onClick={() => onSeniorityChange(opt.value)}
-                className={`btn btn-xs md:btn-sm rounded-lg transition-all ${
-                  active
-                    ? "btn-primary shadow-xs"
-                    : "btn-ghost bg-base-200/80 hover:bg-base-200 text-base-content/80"
-                }`}
+                className={`btn btn-xs md:btn-sm rounded-lg transition-all ${active
+                  ? "btn-primary shadow-xs"
+                  : "btn-ghost bg-base-200/80 hover:bg-base-200 text-base-content/80"
+                  }`}
               >
                 {opt.label}
               </button>
@@ -121,29 +115,43 @@ export const JobFilters = ({
         </div>
       </div>
 
-      {/* Pílulas de Filtro de Localidade */}
-      <div className="space-y-2 pt-1 border-t border-base-200">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-base-content/70">
-          <MapPin className="w-3.5 h-3.5" />
-          <span>Localidade</span>
+      {/* Filtro de Localidade via Select (Cidades & Estados) */}
+      <div className="space-y-2 pt-2 border-t border-base-200">
+        <div className="flex items-center justify-between text-xs font-semibold text-base-content/70">
+          <label
+            htmlFor="location-select"
+            className="flex items-center gap-1.5 cursor-pointer"
+          >
+            <MapPin className="w-3.5 h-3.5 text-primary" />
+            <span>Localidade (Cidade ou Estado)</span>
+          </label>
+          {location !== "ALL" && (
+            <button
+              type="button"
+              onClick={() => onLocationChange("ALL")}
+              className="text-[11px] text-primary hover:underline font-normal cursor-pointer"
+            >
+              Ver todas as localidades
+            </button>
+          )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {LOCATION_OPTIONS.map((opt) => {
-            const active = location === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => onLocationChange(opt.value)}
-                className={`btn btn-xs md:btn-sm rounded-lg transition-all ${
-                  active
-                    ? "btn-primary shadow-xs"
-                    : "btn-ghost bg-base-200/80 hover:bg-base-200 text-base-content/80"
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
+        <div className="relative w-full sm:max-w-md">
+          <select
+            id="location-select"
+            value={location}
+            onChange={(e) => onLocationChange(e.target.value)}
+            className="select select-bordered select-sm md:select-md w-full rounded-xl font-medium focus:outline-primary bg-base-100 text-sm shadow-2xs"
+          >
+            {LOCATION_SELECT_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -159,11 +167,10 @@ export const JobFilters = ({
               <button
                 key={opt.value}
                 onClick={() => onWorkModelChange(opt.value)}
-                className={`btn btn-xs md:btn-sm rounded-lg transition-all ${
-                  active
-                    ? "btn-primary shadow-xs"
-                    : "btn-ghost bg-base-200/80 hover:bg-base-200 text-base-content/80"
-                }`}
+                className={`btn btn-xs md:btn-sm rounded-lg transition-all ${active
+                  ? "btn-primary shadow-xs"
+                  : "btn-ghost bg-base-200/80 hover:bg-base-200 text-base-content/80"
+                  }`}
               >
                 {opt.label}
               </button>
@@ -186,11 +193,10 @@ export const JobFilters = ({
                 <button
                   key={st}
                   onClick={() => onStackChange(active ? "" : st)}
-                  className={`text-xs px-2.5 py-1 rounded-md transition-all font-medium ${
-                    active
-                      ? "bg-accent text-accent-content font-bold shadow-xs"
-                      : "bg-base-200 hover:bg-base-300 text-base-content/70"
-                  }`}
+                  className={`text-xs px-2.5 py-1 rounded-md transition-all font-medium ${active
+                    ? "bg-accent text-accent-content font-bold shadow-xs"
+                    : "bg-base-200 hover:bg-base-300 text-base-content/70"
+                    }`}
                 >
                   {st}
                 </button>

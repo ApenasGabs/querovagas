@@ -33,11 +33,7 @@ describe("MockJobDataSource", () => {
   it("should filter jobs by location (SP_REGION)", async () => {
     const result = await dataSource.getJobs({ location: "SP_REGION" });
     expect(result.jobs.length).toBeGreaterThanOrEqual(1);
-    expect(
-      result.jobs.every((j) =>
-        /(são paulo|campinas|sp)/i.test(j.location)
-      )
-    ).toBe(true);
+    expect(result.jobs.every((j) => /(são paulo|campinas|sp)/i.test(j.location))).toBe(true);
   });
 
   it("should return job by ID correctly", async () => {
@@ -60,4 +56,3 @@ describe("MockJobDataSource", () => {
     expect(stacks).toContain("React");
   });
 });
-
