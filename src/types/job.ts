@@ -51,3 +51,4 @@ export interface JobStats {
   bySeniority: Record<string, number>;
   bySource: Record<string, number>;
 }
+

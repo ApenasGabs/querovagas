@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import {
   AlertCircle,
   Briefcase,
@@ -6,20 +7,20 @@ import {
   MessageSquare,
   Sparkles,
 } from "lucide-react";
-import { Navbar } from "./components/Navbar/Navbar";
-import { Footer } from "./components/Footer/Footer";
-import ThemeSelector from "./components/ThemeSelector/ThemeSelector";
+import { Alert } from "./components/Alert/Alert";
 import { Badge } from "./components/Badge/Badge";
 import { Button } from "./components/Button/Button";
-import { Alert } from "./components/Alert/Alert";
-import { useJobs } from "./features/jobs/hooks/useJobs";
+import { Footer } from "./components/Footer/Footer";
+import { Navbar } from "./components/Navbar/Navbar";
+import ThemeSelector from "./components/ThemeSelector/ThemeSelector";
 import { JobCard } from "./features/jobs/components/JobCard";
 import { JobFilters } from "./features/jobs/components/JobFilters";
 import { JobModal } from "./features/jobs/components/JobModal";
-import { JobStatsBanner } from "./features/jobs/components/JobStatsBanner";
 import { JobSkeleton } from "./features/jobs/components/JobSkeleton";
+import { JobStatsBanner } from "./features/jobs/components/JobStatsBanner";
+import { useJobs } from "./features/jobs/hooks/useJobs";
 
-export default function App() {
+export default function App(): ReactElement {
   const {
     jobs,
     total,
@@ -44,15 +45,20 @@ export default function App() {
     refresh,
   } = useJobs(12);
 
-  // Link opcional para o Canal de transmissão do WhatsApp (Broadcast aberto)
-  const whatsappChannelUrl = import.meta.env.VITE_WHATSAPP_CHANNEL_URL || "";
+  // Link opcional para o Canal de transmissão do WhatsApp (broadcast público)
+  const whatsappChannelUrl =
+    (import.meta.env.VITE_WHATSAPP_CHANNEL_URL as string) || "";
 
   return (
     <div className="min-h-screen flex flex-col bg-base-200/50 text-base-content selection:bg-primary selection:text-primary-content">
       {/* Topbar / Navbar */}
       <Navbar title="">
         <div className="flex items-center gap-3 w-full justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={clearFilters}>
+          <div
+            className="flex items-center gap-2 cursor-pointer select-none"
+            onClick={clearFilters}
+            title="QueroVagas - Ir para o início"
+          >
             <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-primary-content shadow-xs">
               <Briefcase className="w-5 h-5" />
             </div>
@@ -60,7 +66,11 @@ export default function App() {
               <span className="text-xl font-black tracking-tight text-base-content">
                 Quero<span className="text-primary">Vagas</span>
               </span>
-              <Badge variant="accent" size="sm" className="hidden sm:inline-flex font-mono text-[10px]">
+              <Badge
+                variant="accent"
+                size="sm"
+                className="hidden sm:inline-flex font-mono text-[10px]"
+              >
                 TECH ONLY
               </Badge>
             </div>
@@ -76,10 +86,9 @@ export default function App() {
                 title="Receba alertas de novas vagas em nosso canal de transmissão oficial"
               >
                 <MessageSquare className="w-4 h-4" />
-                <span className="text-xs">Canal no WhatsApp</span>
+                <span className="text-xs font-semibold">Canal no WhatsApp</span>
               </a>
             )}
-
             <ThemeSelector />
           </div>
         </div>
@@ -100,8 +109,9 @@ export default function App() {
             </span>
           </h1>
           <p className="text-sm md:text-base text-base-content/70">
-            Acompanhe oportunidades de estágio, júnior, pleno e sênior coletadas diretamente das principais
-            plataformas (Gupy, Ashby, InHire, Lever e mais), 100% filtradas contra ruído.
+            Acompanhe oportunidades de estágio, júnior, pleno e sênior coletadas
+            diretamente das principais plataformas (Gupy, Ashby, InHire, Lever e
+            mais), 100% filtradas contra ruído.
           </p>
         </div>
 
@@ -153,7 +163,8 @@ export default function App() {
                 Nenhuma vaga encontrada
               </h3>
               <p className="text-sm text-base-content/60 max-w-md mx-auto">
-                Não encontramos vagas correspondentes aos filtros selecionados. Tente ajustar os termos de busca ou remover alguns filtros.
+                Não encontramos vagas correspondentes aos filtros selecionados.
+                Tente ajustar os termos de busca ou remover alguns filtros.
               </p>
             </div>
             <Button variant="primary" size="sm" onClick={clearFilters}>
@@ -172,8 +183,10 @@ export default function App() {
             {totalPages > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-base-300">
                 <span className="text-xs text-base-content/60">
-                  Mostrando página <strong className="text-base-content">{page}</strong> de{" "}
-                  <strong className="text-base-content">{totalPages}</strong> ({total} vagas no total)
+                  Mostrando página{" "}
+                  <strong className="text-base-content">{page}</strong> de{" "}
+                  <strong className="text-base-content">{totalPages}</strong> (
+                  {total} vagas no total)
                 </span>
 
                 <div className="join">

@@ -218,9 +218,7 @@ describe("Footer Component", () => {
   it("renders footer text and link", () => {
     render(<Footer />);
     expect(
-      screen.getByText(
-        "QueroVagas · Plataforma de Oportunidades em Tecnologia",
-      ),
+      screen.getByText("QueroVagas · Plataforma de Oportunidades em Tecnologia"),
     ).toBeInTheDocument();
     const link = screen.getByText("ApenasGabs") as HTMLAnchorElement;
     expect(link.href).toContain("github.com/apenasgabs");
