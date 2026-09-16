@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.1.1](https://github.com/ApenasGabs/querovagas/compare/v1.1.0...v1.1.1) (2026-09-16)
+
+### 🐛 Bug Fixes
+
+* **supabase:** quote location.ilike patterns in PostgREST logic tree ([a48a164](https://github.com/ApenasGabs/querovagas/commit/a48a16416d6dfa42fb0301ba5efcc737577eec83))
+
 ## [1.1.0](https://github.com/ApenasGabs/querovagas/compare/v1.0.0...v1.1.0) (2026-09-16)
 
 ### ✨ Features
