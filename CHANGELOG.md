@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.1.0](https://github.com/ApenasGabs/querovagas/compare/v1.0.0...v1.1.0) (2026-09-16)
+
+### ✨ Features
+
+* **ui:** align brand left, remove tech only and hero title, add SP region location filter ([f90d0c9](https://github.com/ApenasGabs/querovagas/commit/f90d0c9ee5a2512921de5fbbff0b18d9528c97fa))
+
 ## 1.0.0 (2026-09-16)
 
 ### ✨ Features
