@@ -1,194 +1,213 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { Alert } from "./components/Alert/Alert";
-import { Button } from "./components/Button/Button";
-import { ComponentsDemo } from "./components/ComponentsDemo";
-import { CounterCard } from "./components/CounterCard/CounterCard";
-import { FeatureCard } from "./components/FeatureCard/FeatureCard";
-import { Footer } from "./components/Footer/Footer";
-import { Logo } from "./components/Logo/Logo";
+import {
+  AlertCircle,
+  Briefcase,
+  ChevronLeft,
+  ChevronRight,
+  MessageSquare,
+  Sparkles,
+} from "lucide-react";
 import { Navbar } from "./components/Navbar/Navbar";
+import { Footer } from "./components/Footer/Footer";
 import ThemeSelector from "./components/ThemeSelector/ThemeSelector";
-import { ToolItem } from "./components/ToolItem/ToolItem";
-import viteLogo from "/vite.svg";
+import { Badge } from "./components/Badge/Badge";
+import { Button } from "./components/Button/Button";
+import { Alert } from "./components/Alert/Alert";
+import { useJobs } from "./features/jobs/hooks/useJobs";
+import { JobCard } from "./features/jobs/components/JobCard";
+import { JobFilters } from "./features/jobs/components/JobFilters";
+import { JobModal } from "./features/jobs/components/JobModal";
+import { JobStatsBanner } from "./features/jobs/components/JobStatsBanner";
+import { JobSkeleton } from "./features/jobs/components/JobSkeleton";
 
-const VERSIONS = {
-  vite: "7.2.4",
-  react: "19.2.0",
-  typescript: "5.9.3",
-  tailwind: "4.1.18",
-  daisyui: "5.5.14",
-  vitest: "4.0.18",
-  playwright: "1.58.0",
-};
+export default function App() {
+  const {
+    jobs,
+    total,
+    page,
+    totalPages,
+    loading,
+    error,
+    selectedJob,
+    stats,
+    popularStacks,
+    search,
+    seniority,
+    workModel,
+    stack,
+    setSearch,
+    setSeniority,
+    setWorkModel,
+    setStack,
+    setPage,
+    selectJob,
+    clearFilters,
+    refresh,
+  } = useJobs(12);
 
-const App = () => {
-  const [count, setCount] = useState(0);
-  const [showExamples, setShowExamples] = useState(false);
-
-  const handleIncrement = (): void => {
-    setCount((prevCount) => prevCount + 1);
-  };
-
-  const renderHome = (): React.JSX.Element => (
-    <div className="hero flex-1 justify-center">
-      <div className="hero-content text-center">
-        <div className="max-w-4xl">
-          <div className="flex justify-center gap-8 mb-8">
-            <Logo
-              src={viteLogo}
-              alt="Vite logo"
-              href="https://vite.dev"
-              testId="vite-logo"
-            />
-            <Logo
-              src={reactLogo}
-              alt="React logo"
-              href="https://react.dev"
-              testId="react-logo"
-              animated
-            />
-          </div>
-
-          <h1 className="text-5xl font-bold mb-4" data-testid="main-title">
-            Vite + React + TypeScript
-          </h1>
-          <p className="text-xl mb-8" data-testid="main-description">
-            Template com Tailwind CSS e daisyUI configurados
-          </p>
-
-          <a
-            href="https://github.com/ApenasGabs/ApenasTemplate"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-block mb-8"
-          >
-            <div className="badge badge-primary badge-lg gap-2 px-4 py-3 text-base font-semibold cursor-pointer hover:badge-accent transition-all">
-              <span className="text-xl">🐙</span>
-              GitHub: ApenasGabs/ApenasTemplate
-            </div>
-          </a>
-
-          <CounterCard count={count} onIncrement={handleIncrement} />
-
-          <div
-            className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
-            data-testid="feature-cards"
-          >
-            <FeatureCard
-              title="Vite"
-              description="Build rápido e HMR instantâneo"
-              version={VERSIONS.vite}
-              href="https://vite.dev"
-              variant="primary"
-              testId="vite-card"
-            />
-            <FeatureCard
-              title="Tailwind CSS"
-              description="Utility-first CSS framework"
-              version={VERSIONS.tailwind}
-              href="https://tailwindcss.com"
-              variant="secondary"
-              testId="tailwind-card"
-            />
-            <FeatureCard
-              title="daisyUI"
-              description="Componentes prontos para uso"
-              version={VERSIONS.daisyui}
-              href="https://daisyui.com"
-              variant="accent"
-              testId="daisyui-card"
-            />
-          </div>
-
-          <div className="card bg-base-100 shadow-xl border border-base-300 mb-8 text-left">
-            <div className="card-body">
-              <h2 className="card-title">Galeria de Componentes</h2>
-              <p className="text-base-content/70">
-                Veja exemplos práticos de todos os componentes base já prontos
-                com daisyUI.
-              </p>
-              <div className="card-actions justify-end">
-                <Button variant="primary" onClick={() => setShowExamples(true)}>
-                  Ver exemplos
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <Alert testId="info-alert">
-            Edite{" "}
-            <code className="font-mono bg-base-200 px-2 py-1 rounded">
-              src/App.tsx
-            </code>{" "}
-            e salve para testar o HMR
-          </Alert>
-
-          <div className="mt-12 text-left" data-testid="tools-section">
-            <h2 className="text-2xl font-bold mb-6 text-center">
-              Ferramentas Incluídas
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <ToolItem icon="⚡" name="React" version={VERSIONS.react} />
-              <ToolItem
-                icon="📘"
-                name="TypeScript"
-                version={VERSIONS.typescript}
-              />
-              <ToolItem icon="🧪" name="Vitest" version={VERSIONS.vitest} />
-              <ToolItem
-                icon="🎭"
-                name="Playwright"
-                version={VERSIONS.playwright}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderExamples = (): React.JSX.Element => (
-    <div className="flex-1 bg-base-200">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="card bg-base-100 shadow-xl border border-base-300 mb-6">
-          <div className="card-body flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="card-title">Galeria de Componentes</h2>
-                <p className="text-sm text-base-content/70">
-                  Exemplos práticos dos componentes base com daisyUI.
-                </p>
-              </div>
-              <Button variant="ghost" onClick={() => setShowExamples(false)}>
-                ← Voltar
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <ComponentsDemo />
-
-        <div className="mt-8 flex justify-center">
-          <Button variant="primary" onClick={() => setShowExamples(false)}>
-            Voltar para a home
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+  // Link opcional para o Canal de transmissão do WhatsApp (Broadcast aberto)
+  const whatsappChannelUrl = import.meta.env.VITE_WHATSAPP_CHANNEL_URL || "";
 
   return (
-    <div className="min-h-screen bg-base-200 flex flex-col">
-      <Navbar title="Apenas Template">
-        <ThemeSelector />
+    <div className="min-h-screen flex flex-col bg-base-200/50 text-base-content selection:bg-primary selection:text-primary-content">
+      {/* Topbar / Navbar */}
+      <Navbar title="">
+        <div className="flex items-center gap-3 w-full justify-between">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={clearFilters}>
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-primary-content shadow-xs">
+              <Briefcase className="w-5 h-5" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-black tracking-tight text-base-content">
+                Quero<span className="text-primary">Vagas</span>
+              </span>
+              <Badge variant="accent" size="sm" className="hidden sm:inline-flex font-mono text-[10px]">
+                TECH ONLY
+              </Badge>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-3">
+            {whatsappChannelUrl && (
+              <a
+                href={whatsappChannelUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-sm btn-ghost gap-1.5 text-success hover:bg-success/10 hidden md:inline-flex"
+                title="Receba alertas de novas vagas em nosso canal de transmissão oficial"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span className="text-xs">Canal no WhatsApp</span>
+              </a>
+            )}
+
+            <ThemeSelector />
+          </div>
+        </div>
       </Navbar>
 
-      {showExamples ? renderExamples() : renderHome()}
+      {/* Conteúdo Principal */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-8">
+        {/* Hero Section */}
+        <div className="text-center space-y-3 max-w-3xl mx-auto pt-2 pb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Vagas atualizadas e filtradas para desenvolvedores e TI</span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-base-content">
+            Sua próxima oportunidade em{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
+              Tecnologia
+            </span>
+          </h1>
+          <p className="text-sm md:text-base text-base-content/70">
+            Acompanhe oportunidades de estágio, júnior, pleno e sênior coletadas diretamente das principais
+            plataformas (Gupy, Ashby, InHire, Lever e mais), 100% filtradas contra ruído.
+          </p>
+        </div>
 
+        {/* Banner de Estatísticas Resumidas */}
+        <JobStatsBanner stats={stats} />
+
+        {/* Barra de Busca & Filtros Dinâmicos */}
+        <JobFilters
+          search={search}
+          onSearchChange={setSearch}
+          seniority={seniority}
+          onSeniorityChange={setSeniority}
+          workModel={workModel}
+          onWorkModelChange={setWorkModel}
+          stack={stack}
+          onStackChange={setStack}
+          popularStacks={popularStacks}
+          totalResults={total}
+          onClear={clearFilters}
+        />
+
+        {/* Estado de Erro */}
+        {error && (
+          <div className="my-6">
+            <Alert type="error">
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  <span>{error}</span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => refresh()}>
+                  Tentar novamente
+                </Button>
+              </div>
+            </Alert>
+          </div>
+        )}
+
+        {/* Grid de Vagas ou Skeleton de Carregamento */}
+        {loading ? (
+          <JobSkeleton />
+        ) : jobs.length === 0 ? (
+          <div className="p-12 text-center bg-base-100 rounded-2xl border border-base-300 space-y-4 my-8">
+            <div className="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center mx-auto text-base-content/40">
+              <Briefcase className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-base-content">
+                Nenhuma vaga encontrada
+              </h3>
+              <p className="text-sm text-base-content/60 max-w-md mx-auto">
+                Não encontramos vagas correspondentes aos filtros selecionados. Tente ajustar os termos de busca ou remover alguns filtros.
+              </p>
+            </div>
+            <Button variant="primary" size="sm" onClick={clearFilters}>
+              Limpar todos os filtros
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {jobs.map((job) => (
+                <JobCard key={job.id} job={job} onSelect={selectJob} />
+              ))}
+            </div>
+
+            {/* Paginação */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-base-300">
+                <span className="text-xs text-base-content/60">
+                  Mostrando página <strong className="text-base-content">{page}</strong> de{" "}
+                  <strong className="text-base-content">{totalPages}</strong> ({total} vagas no total)
+                </span>
+
+                <div className="join">
+                  <button
+                    className="join-item btn btn-sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Anterior
+                  </button>
+                  <button className="join-item btn btn-sm btn-active font-mono">
+                    {page}
+                  </button>
+                  <button
+                    className="join-item btn btn-sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage(page + 1)}
+                  >
+                    Próxima
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* Modal de Detalhes da Vaga */}
+      <JobModal job={selectedJob} onClose={() => selectJob(null)} />
+
+      {/* Rodapé da Aplicação */}
       <Footer />
     </div>
   );
-};
-
-export default App;
+}

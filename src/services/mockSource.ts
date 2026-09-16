@@ -1,0 +1,106 @@
+import type { Job, JobFilterParams, JobStats, PaginatedJobs } from "../types/job";
+import type { IJobDataSource } from "./dataSource.interface";
+import { MOCK_JOBS } from "./mockJobs";
+
+export class MockJobDataSource implements IJobDataSource {
+  private jobs: Job[] = [...MOCK_JOBS];
+
+  public async getJobs(params: JobFilterParams = {}): Promise<PaginatedJobs> {
+    const {
+      search = "",
+      seniority = "ALL",
+      workModel = "ALL",
+      source = "ALL",
+      stack = "",
+      page = 1,
+      pageSize = 12,
+    } = params;
+
+    let filtered = this.jobs.filter((j) => j.isTech !== false);
+
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      filtered = filtered.filter(
+        (j) =>
+          j.title.toLowerCase().includes(q) ||
+          j.company.toLowerCase().includes(q) ||
+          j.location.toLowerCase().includes(q) ||
+          j.stack.some((s) => s.toLowerCase().includes(q))
+      );
+    }
+
+    if (seniority && seniority !== "ALL") {
+      filtered = filtered.filter((j) => j.seniorityLevel === seniority);
+    }
+
+    if (workModel && workModel !== "ALL") {
+      filtered = filtered.filter((j) => j.workModel === workModel);
+    }
+
+    if (source && source !== "ALL") {
+      filtered = filtered.filter((j) => j.source === source);
+    }
+
+    if (stack && stack.trim()) {
+      const st = stack.toLowerCase().trim();
+      filtered = filtered.filter((j) =>
+        j.stack.some((s) => s.toLowerCase().includes(st))
+      );
+    }
+
+    // Ordenar por data mais recente
+    filtered.sort(
+      (a, b) => new Date(b.scrapedAt).getTime() - new Date(a.scrapedAt).getTime()
+    );
+
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / pageSize) || 1;
+    const startIndex = (page - 1) * pageSize;
+    const paginated = filtered.slice(startIndex, startIndex + pageSize);
+
+    return {
+      jobs: paginated,
+      total,
+      page,
+      pageSize,
+      totalPages,
+    };
+  }
+
+  public async getJobById(id: string): Promise<Job | null> {
+    const found = this.jobs.find((j) => j.id === id);
+    return found || null;
+  }
+
+  public async getStats(): Promise<JobStats> {
+    const byModel: Record<string, number> = {};
+    const bySeniority: Record<string, number> = {};
+    const bySource: Record<string, number> = {};
+
+    for (const j of this.jobs) {
+      byModel[j.workModel] = (byModel[j.workModel] || 0) + 1;
+      bySeniority[j.seniorityLevel] = (bySeniority[j.seniorityLevel] || 0) + 1;
+      bySource[j.source] = (bySource[j.source] || 0) + 1;
+    }
+
+    return {
+      totalJobs: this.jobs.length,
+      byModel,
+      bySeniority,
+      bySource,
+    };
+  }
+
+  public async getPopularStacks(): Promise<string[]> {
+    const map = new Map<string, number>();
+    for (const j of this.jobs) {
+      for (const s of j.stack) {
+        map.set(s, (map.get(s) || 0) + 1);
+      }
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name)
+      .slice(0, 15);
+  }
+}

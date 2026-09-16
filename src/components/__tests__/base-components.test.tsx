@@ -219,7 +219,7 @@ describe("Footer Component", () => {
     render(<Footer />);
     expect(
       screen.getByText(
-        "Template React + TypeScript + Vite + Tailwind CSS + daisyUI",
+        "QueroVagas · Plataforma de Oportunidades em Tecnologia",
       ),
     ).toBeInTheDocument();
     const link = screen.getByText("ApenasGabs") as HTMLAnchorElement;

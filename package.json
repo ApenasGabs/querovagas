@@ -1,7 +1,7 @@
 {
-  "name": "apenas-template",
+  "name": "querovagas",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -18,7 +18,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
     "@tailwindcss/vite": "^4.1.18",
+    "lucide-react": "^1.42.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwindcss": "^4.1.18"
