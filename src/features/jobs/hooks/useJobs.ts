@@ -16,10 +16,12 @@ export interface UseJobsReturn {
   search: string;
   seniority: SeniorityLevel | "ALL";
   workModel: WorkModel | "ALL";
+  location: string | "ALL";
   stack: string;
   setSearch: (search: string) => void;
   setSeniority: (seniority: SeniorityLevel | "ALL") => void;
   setWorkModel: (model: WorkModel | "ALL") => void;
+  setLocation: (location: string) => void;
   setStack: (stack: string) => void;
   setPage: (page: number) => void;
   selectJob: (job: Job | null) => void;
@@ -38,11 +40,12 @@ export function useJobs(pageSize = 12): UseJobsReturn {
   const [stats, setStats] = useState<JobStats | null>(null);
   const [popularStacks, setPopularStacks] = useState<string[]>([]);
 
-  // Filtros
+  // Filtros (default: São Paulo e Região)
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [seniority, setSeniority] = useState<SeniorityLevel | "ALL">("ALL");
   const [workModel, setWorkModel] = useState<WorkModel | "ALL">("ALL");
+  const [location, setLocation] = useState<string>("SP_REGION");
   const [stack, setStack] = useState("");
 
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,6 +78,11 @@ export function useJobs(pageSize = 12): UseJobsReturn {
     setPage(1);
   }, []);
 
+  const handleLocationChange = useCallback((loc: string) => {
+    setLocation(loc);
+    setPage(1);
+  }, []);
+
   const handleStackChange = useCallback((st: string) => {
     setStack(st);
     setPage(1);
@@ -85,6 +93,7 @@ export function useJobs(pageSize = 12): UseJobsReturn {
     setDebouncedSearch("");
     setSeniority("ALL");
     setWorkModel("ALL");
+    setLocation("SP_REGION");
     setStack("");
     setPage(1);
   }, []);
@@ -99,6 +108,7 @@ export function useJobs(pageSize = 12): UseJobsReturn {
         search: debouncedSearch,
         seniority,
         workModel,
+        location,
         stack,
         page,
         pageSize,
@@ -125,7 +135,7 @@ export function useJobs(pageSize = 12): UseJobsReturn {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, seniority, workModel, stack, page, pageSize, stats, popularStacks.length]);
+  }, [debouncedSearch, seniority, workModel, location, stack, page, pageSize, stats, popularStacks.length]);
 
   useEffect(() => {
     fetchJobs();
@@ -145,10 +155,12 @@ export function useJobs(pageSize = 12): UseJobsReturn {
     search,
     seniority,
     workModel,
+    location,
     stack,
     setSearch,
     setSeniority: handleSeniorityChange,
     setWorkModel: handleWorkModelChange,
+    setLocation: handleLocationChange,
     setStack: handleStackChange,
     setPage,
     selectJob: setSelectedJob,

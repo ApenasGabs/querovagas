@@ -31,6 +31,7 @@ export interface JobFilterParams {
   search?: string;
   seniority?: SeniorityLevel | "ALL";
   workModel?: WorkModel | "ALL";
+  location?: string | "ALL";
   source?: string | "ALL";
   stack?: string;
   page?: number;

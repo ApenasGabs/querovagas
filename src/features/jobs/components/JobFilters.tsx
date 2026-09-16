@@ -1,4 +1,4 @@
-import { Filter, RotateCcw, Search, Sparkles } from "lucide-react";
+import { Filter, MapPin, RotateCcw, Search, Sparkles } from "lucide-react";
 import type { SeniorityLevel, WorkModel } from "../../../types/job";
 import { Button } from "../../../components/Button/Button";
 
@@ -9,12 +9,20 @@ interface JobFiltersProps {
   onSeniorityChange: (val: SeniorityLevel | "ALL") => void;
   workModel: WorkModel | "ALL";
   onWorkModelChange: (val: WorkModel | "ALL") => void;
+  location: string;
+  onLocationChange: (val: string) => void;
   stack: string;
   onStackChange: (val: string) => void;
   popularStacks: string[];
   totalResults: number;
   onClear: () => void;
 }
+
+const LOCATION_OPTIONS: { label: string; value: string }[] = [
+  { label: "📍 São Paulo e Região (inclui Campinas)", value: "SP_REGION" },
+  { label: "🌐 Todas as localidades", value: "ALL" },
+  { label: "🇧🇷 Brasil (Geral)", value: "BRASIL" },
+];
 
 const SENIORITY_OPTIONS: { label: string; value: SeniorityLevel | "ALL" }[] = [
   { label: "Todos os níveis", value: "ALL" },
@@ -39,6 +47,8 @@ export const JobFilters = ({
   onSeniorityChange,
   workModel,
   onWorkModelChange,
+  location,
+  onLocationChange,
   stack,
   onStackChange,
   popularStacks,
@@ -49,6 +59,7 @@ export const JobFilters = ({
     search.trim().length > 0 ||
     seniority !== "ALL" ||
     workModel !== "ALL" ||
+    location !== "SP_REGION" ||
     stack.trim().length > 0;
 
   return (
@@ -97,6 +108,32 @@ export const JobFilters = ({
               <button
                 key={opt.value}
                 onClick={() => onSeniorityChange(opt.value)}
+                className={`btn btn-xs md:btn-sm rounded-lg transition-all ${
+                  active
+                    ? "btn-primary shadow-xs"
+                    : "btn-ghost bg-base-200/80 hover:bg-base-200 text-base-content/80"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Pílulas de Filtro de Localidade */}
+      <div className="space-y-2 pt-1 border-t border-base-200">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-base-content/70">
+          <MapPin className="w-3.5 h-3.5" />
+          <span>Localidade</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {LOCATION_OPTIONS.map((opt) => {
+            const active = location === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => onLocationChange(opt.value)}
                 className={`btn btn-xs md:btn-sm rounded-lg transition-all ${
                   active
                     ? "btn-primary shadow-xs"

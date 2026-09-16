@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import type { ReactElement } from "react";
 import { Alert } from "./components/Alert/Alert";
-import { Badge } from "./components/Badge/Badge";
 import { Button } from "./components/Button/Button";
 import { Footer } from "./components/Footer/Footer";
 import { Navbar } from "./components/Navbar/Navbar";
@@ -34,10 +33,12 @@ export default function App(): ReactElement {
     search,
     seniority,
     workModel,
+    location,
     stack,
     setSearch,
     setSeniority,
     setWorkModel,
+    setLocation,
     setStack,
     setPage,
     selectJob,
@@ -52,66 +53,49 @@ export default function App(): ReactElement {
   return (
     <div className="min-h-screen flex flex-col bg-base-200/50 text-base-content selection:bg-primary selection:text-primary-content">
       {/* Topbar / Navbar */}
-      <Navbar title="">
-        <div className="flex items-center gap-3 w-full justify-between">
+      <Navbar
+        title={
           <div
-            className="flex items-center gap-2 cursor-pointer select-none"
+            className="flex items-center gap-2.5 cursor-pointer select-none"
             onClick={clearFilters}
             title="QueroVagas - Ir para o início"
           >
             <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-primary-content shadow-xs">
               <Briefcase className="w-5 h-5" />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-black tracking-tight text-base-content">
-                Quero<span className="text-primary">Vagas</span>
-              </span>
-              <Badge
-                variant="accent"
-                size="sm"
-                className="hidden sm:inline-flex font-mono text-[10px]"
-              >
-                TECH ONLY
-              </Badge>
-            </div>
+            <span className="text-xl font-black tracking-tight text-base-content">
+              Quero<span className="text-primary">Vagas</span>
+            </span>
           </div>
-
-          <div className="flex items-center gap-2 md:gap-3">
-            {whatsappChannelUrl && (
-              <a
-                href={whatsappChannelUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-sm btn-ghost gap-1.5 text-success hover:bg-success/10 hidden md:inline-flex"
-                title="Receba alertas de novas vagas em nosso canal de transmissão oficial"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span className="text-xs font-semibold">Canal no WhatsApp</span>
-              </a>
-            )}
-            <ThemeSelector />
-          </div>
+        }
+      >
+        <div className="flex items-center gap-2 md:gap-3">
+          {whatsappChannelUrl && (
+            <a
+              href={whatsappChannelUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-sm btn-ghost gap-1.5 text-success hover:bg-success/10 hidden md:inline-flex"
+              title="Receba alertas de novas vagas em nosso canal de transmissão oficial"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="text-xs font-semibold">Canal no WhatsApp</span>
+            </a>
+          )}
+          <ThemeSelector />
         </div>
       </Navbar>
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-8">
-        {/* Hero Section */}
-        <div className="text-center space-y-3 max-w-3xl mx-auto pt-2 pb-4">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8 space-y-6 md:space-y-8">
+        {/* Banner Informativo Discreto */}
+        <div className="text-center space-y-2 max-w-2xl mx-auto pt-1">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Vagas atualizadas e filtradas para desenvolvedores e TI</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-base-content">
-            Sua próxima oportunidade em{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
-              Tecnologia
-            </span>
-          </h1>
-          <p className="text-sm md:text-base text-base-content/70">
-            Acompanhe oportunidades de estágio, júnior, pleno e sênior coletadas
-            diretamente das principais plataformas (Gupy, Ashby, InHire, Lever e
-            mais), 100% filtradas contra ruído.
+          <p className="text-xs sm:text-sm text-base-content/70">
+            Oportunidades coletadas diretamente das principais ATS (Gupy, Ashby, InHire, Lever e mais), 100% filtradas contra ruído.
           </p>
         </div>
 
@@ -126,6 +110,8 @@ export default function App(): ReactElement {
           onSeniorityChange={setSeniority}
           workModel={workModel}
           onWorkModelChange={setWorkModel}
+          location={location}
+          onLocationChange={setLocation}
           stack={stack}
           onStackChange={setStack}
           popularStacks={popularStacks}

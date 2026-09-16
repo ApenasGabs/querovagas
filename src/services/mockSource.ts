@@ -10,6 +10,7 @@ export class MockJobDataSource implements IJobDataSource {
       search = "",
       seniority = "ALL",
       workModel = "ALL",
+      location = "ALL",
       source = "ALL",
       stack = "",
       page = 1,
@@ -35,6 +36,40 @@ export class MockJobDataSource implements IJobDataSource {
 
     if (workModel && workModel !== "ALL") {
       filtered = filtered.filter((j) => j.workModel === workModel);
+    }
+
+    // Filtro por localidade
+    const SP_REGION_REGEX =
+      /\b(s[aã]o paulo|sp|campinas|barueri|osasco|santo andr[eé]|s[aã]o bernardo|s[aã]o caetano|sorocaba|s[aã]o jos[eé] dos campos|jundia[ií]|piracicaba|indaiatuba|hortol[aâ]ndia|valinhos|vinhedo|s[aã]o carlos|ribeir[aã]o preto|alphaville|guarulhos|santos)\b/i;
+
+    if (location === "SP_REGION") {
+      filtered = filtered.filter((j) => {
+        const locLower = (j.location || "").toLowerCase();
+        if (
+          locLower.includes("spain") ||
+          locLower.includes("madrid") ||
+          locLower.includes("barcelona")
+        ) {
+          return false;
+        }
+        return SP_REGION_REGEX.test(j.location);
+      });
+    } else if (location === "BRASIL") {
+      filtered = filtered.filter((j) => {
+        const locLower = (j.location || "").toLowerCase();
+        return (
+          locLower.includes("brasil") ||
+          locLower.includes("brazil") ||
+          locLower.includes(", br") ||
+          locLower.endsWith(" br") ||
+          SP_REGION_REGEX.test(j.location)
+        );
+      });
+    } else if (location && location !== "ALL") {
+      const locQ = location.toLowerCase();
+      filtered = filtered.filter((j) =>
+        (j.location || "").toLowerCase().includes(locQ)
+      );
     }
 
     if (source && source !== "ALL") {

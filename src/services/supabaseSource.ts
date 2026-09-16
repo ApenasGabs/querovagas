@@ -29,6 +29,7 @@ export class SupabaseJobDataSource implements IJobDataSource {
       search = "",
       seniority = "ALL",
       workModel = "ALL",
+      location = "ALL",
       source = "ALL",
       page = 1,
       pageSize = 12,
@@ -52,6 +53,21 @@ export class SupabaseJobDataSource implements IJobDataSource {
 
     if (workModel && workModel !== "ALL") {
       query = query.eq("work_model", workModel);
+    }
+
+    // Filtro de localidade (São Paulo e Região / Campinas)
+    if (location === "SP_REGION") {
+      query = query
+        .or(
+          "location.ilike.*São Paulo*,location.ilike.*Sao Paulo*,location.ilike.*Campinas*,location.ilike.*Barueri*,location.ilike.*Osasco*,location.ilike.*Santo André*,location.ilike.*São Bernardo*,location.ilike.*São Caetano*,location.ilike.*Sorocaba*,location.ilike.*Jundiaí*,location.ilike.*Ribeirão Preto*,location.ilike.*São Carlos*,location.ilike.*Indaiatuba*,location.ilike.*Hortolândia*,location.ilike.*Valinhos*,location.ilike.*Vinhedo*,location.ilike.*Alphaville*,location.ilike.*Guarulhos*,location.ilike.*Santos*,location.ilike.*, SP*,location.ilike.*- SP*,location.ilike.*/SP*"
+        )
+        .not("location", "ilike", "%Spain%");
+    } else if (location === "BRASIL") {
+      query = query.or(
+        "location.ilike.*Brasil*,location.ilike.*Brazil*,location.ilike.*, BR*,location.ilike.*São Paulo*,location.ilike.*Campinas*"
+      );
+    } else if (location && location !== "ALL") {
+      query = query.ilike("location", `%${location}%`);
     }
 
     if (source && source !== "ALL") {
