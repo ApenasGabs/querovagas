@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.2.0](https://github.com/ApenasGabs/querovagas/compare/v1.1.1...v1.2.0) (2026-09-16)
+
+### ✨ Features
+
+* **filters:** convert location filter to rich select grouped by regions, cities and states ([5dff6e0](https://github.com/ApenasGabs/querovagas/commit/5dff6e0ff4943bd098759a9be5b7cc09400c1b4d))
+
 ## [1.1.1](https://github.com/ApenasGabs/querovagas/compare/v1.1.0...v1.1.1) (2026-09-16)
 
 ### 🐛 Bug Fixes
