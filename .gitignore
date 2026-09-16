@@ -31,3 +31,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Private local context and environments
+AGENTS.md
+.env
+.env.*
+!.env.example
