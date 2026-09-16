@@ -1,4 +1,3 @@
-import type { ReactElement } from "react";
 import {
   AlertCircle,
   Briefcase,
@@ -7,6 +6,7 @@ import {
   MessageSquare,
   Sparkles,
 } from "lucide-react";
+import type { ReactElement } from "react";
 import { Alert } from "./components/Alert/Alert";
 import { Badge } from "./components/Badge/Badge";
 import { Button } from "./components/Button/Button";
