@@ -59,12 +59,12 @@ export class SupabaseJobDataSource implements IJobDataSource {
     if (location === "SP_REGION") {
       query = query
         .or(
-          "location.ilike.*São Paulo*,location.ilike.*Sao Paulo*,location.ilike.*Campinas*,location.ilike.*Barueri*,location.ilike.*Osasco*,location.ilike.*Santo André*,location.ilike.*São Bernardo*,location.ilike.*São Caetano*,location.ilike.*Sorocaba*,location.ilike.*Jundiaí*,location.ilike.*Ribeirão Preto*,location.ilike.*São Carlos*,location.ilike.*Indaiatuba*,location.ilike.*Hortolândia*,location.ilike.*Valinhos*,location.ilike.*Vinhedo*,location.ilike.*Alphaville*,location.ilike.*Guarulhos*,location.ilike.*Santos*,location.ilike.*, SP*,location.ilike.*- SP*,location.ilike.*/SP*"
+          'location.ilike."*São Paulo*",location.ilike."*Sao Paulo*",location.ilike."*Campinas*",location.ilike."*, SP*",location.ilike."*- SP*",location.ilike."*/SP*",location.ilike."*Barueri*",location.ilike."*Osasco*",location.ilike."*Santo André*",location.ilike."*São Bernardo*",location.ilike."*São Caetano*",location.ilike."*Sorocaba*",location.ilike."*Jundiaí*",location.ilike."*Ribeirão Preto*",location.ilike."*São Carlos*",location.ilike."*Indaiatuba*",location.ilike."*Hortolândia*",location.ilike."*Valinhos*",location.ilike."*Vinhedo*",location.ilike."*Alphaville*",location.ilike."*Guarulhos*",location.ilike."*Santos*"'
         )
         .not("location", "ilike", "%Spain%");
     } else if (location === "BRASIL") {
       query = query.or(
-        "location.ilike.*Brasil*,location.ilike.*Brazil*,location.ilike.*, BR*,location.ilike.*São Paulo*,location.ilike.*Campinas*"
+        'location.ilike."*Brasil*",location.ilike."*Brazil*",location.ilike."*, BR*",location.ilike."*São Paulo*",location.ilike."*Campinas*"'
       );
     } else if (location && location !== "ALL") {
       query = query.ilike("location", `%${location}%`);
