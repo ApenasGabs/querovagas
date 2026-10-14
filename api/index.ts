@@ -1,4 +1,4 @@
-import initialCatalog from "../src/data/monitoredCompanies.json";
+import initialCatalog from "../src/data/monitoredCompanies.ts";
 import { createClient } from "@supabase/supabase-js";
 import express, { type NextFunction, type Request, type Response } from "express";
 
@@ -135,10 +135,12 @@ const handleJobsParser = async (req: Request, res: Response): Promise<void> => {
     .eq("is_tech", true);
 
   if (typeof search === "string" && search.trim()) {
-    const q = search.trim();
-    query = query.or(
-      `title.ilike.%${q}%,company.ilike.%${q}%,location.ilike.%${q}%,description.ilike.%${q}%`,
-    );
+    const q = search.trim().replace(/[,()"]/g, " ").trim();
+    if (q) {
+      query = query.or(
+        `title.ilike.%${q}%,company.ilike.%${q}%,location.ilike.%${q}%,description.ilike.%${q}%`,
+      );
+    }
   }
 
   if (seniority && seniority !== "ALL") {

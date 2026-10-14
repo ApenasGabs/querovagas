@@ -1,4 +1,4 @@
-import initialMonitoredCompanies from "../data/monitoredCompanies.json";
+import initialMonitoredCompanies from "../data/monitoredCompanies.ts";
 import type { Company, CompanyFilterParams, CompanySuggestionInput } from "../types/company";
 import { detectATS } from "../utils/atsDetector";
 

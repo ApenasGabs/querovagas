@@ -35,6 +35,10 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
+        "/api": {
+          target: "http://127.0.0.1:3001",
+          changeOrigin: true,
+        },
       },
     },
     preview: {
@@ -60,6 +64,10 @@ export default defineConfig(({ mode }) => {
               delete proxyRes.headers["alt-svc"];
             });
           },
+        },
+        "/api": {
+          target: "http://127.0.0.1:3001",
+          changeOrigin: true,
         },
       },
     },
