@@ -36,29 +36,40 @@ interface RawJobRow {
 export class SupabaseJobDataSource implements IJobDataSource {
   private client: SupabaseClient | null = null;
   private tableName = "jobs";
+  private isProxy = false;
+  private baseUrl = "/api";
 
   constructor(url?: string, anonKey?: string) {
-    // When no URL is provided, route through the local reverse proxy (/api/v1)
-    // to ensure backend vendor endpoints and credentials are never exposed in the client bundle.
-    const rawUrl = url || "/api/v1";
-    const supabaseKey = anonKey || "public-client-token";
-
-    if (rawUrl) {
-      const resolvedUrl = rawUrl.startsWith("/")
-        ? typeof window !== "undefined" && window.location?.origin
-          ? `${window.location.origin}${rawUrl}`
-          : `http://localhost:5173${rawUrl}`
-        : rawUrl;
-
-      this.client = createClient(resolvedUrl, supabaseKey);
+    // When no URL is provided, or a relative path is given, route through the Express Parser API
+    if (url && url.startsWith("http") && !url.includes("/api")) {
+      this.client = createClient(url, anonKey || "public-client-token");
+    } else {
+      this.isProxy = true;
+      if (url) {
+        this.baseUrl = url.replace(/\/$/, "");
+      }
     }
   }
 
   public isConfigured(): boolean {
-    return this.client !== null;
+    return true;
   }
 
   public getJobs = async (params: JobFilterParams = {}): Promise<PaginatedJobs> => {
+    if (this.isProxy) {
+      const res = await fetch(`${this.baseUrl}/jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Erro ao carregar vagas: HTTP ${res.status}`);
+      }
+
+      return (await res.json()) as PaginatedJobs;
+    }
+
     if (!this.client) {
       throw new Error("Cliente de dados não configurado.");
     }
@@ -93,7 +104,6 @@ export class SupabaseJobDataSource implements IJobDataSource {
       query = query.eq("work_model", workModel);
     }
 
-    // Filtro de localidade (São Paulo e Região, Cidades ou Estados)
     if (location === "SP_REGION") {
       query = query
         .or(
@@ -182,6 +192,12 @@ export class SupabaseJobDataSource implements IJobDataSource {
   };
 
   public getJobById = async (id: string): Promise<Job | null> => {
+    if (this.isProxy) {
+      const res = await fetch(`${this.baseUrl}/jobs/${id}`);
+      if (!res.ok) return null;
+      return (await res.json()) as Job;
+    }
+
     if (!this.client) return null;
 
     const { data, error } = await this.client
@@ -212,6 +228,14 @@ export class SupabaseJobDataSource implements IJobDataSource {
   };
 
   public getStats = async (): Promise<JobStats> => {
+    if (this.isProxy) {
+      const res = await fetch(`${this.baseUrl}/jobs/stats`);
+      if (!res.ok) {
+        return { totalJobs: 0, byModel: {}, bySeniority: {}, bySource: {} };
+      }
+      return (await res.json()) as JobStats;
+    }
+
     if (!this.client) {
       return { totalJobs: 0, byModel: {}, bySeniority: {}, bySource: {} };
     }

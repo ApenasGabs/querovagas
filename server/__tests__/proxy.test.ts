@@ -2,7 +2,7 @@ import type { Server } from "http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import app from "../app";
 
-describe("Express Reverse Proxy", () => {
+describe("Express Reverse Proxy & Parser API", () => {
   let server: Server;
   let baseUrl: string;
 
@@ -33,23 +33,86 @@ describe("Express Reverse Proxy", () => {
     expect(res.headers.get("access-control-expose-headers")).toContain("Content-Range");
   });
 
-  it("should strip vendor headers and return safe responses", async () => {
-    if (process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) {
-      const res = await fetch(`${baseUrl}/api/v1/rest/v1/jobs?select=id&limit=1`, {
-        method: "GET",
-      });
-      // Should be successful
-      expect(res.status).toBeGreaterThanOrEqual(200);
-      expect(res.status).toBeLessThan(300);
+  it("should handle raw PostgREST requests and strip vendor headers", async () => {
+    const rawQuery =
+      "select=*&is_tech=eq.true&or=%28location.ilike.%22*S%C3%A3o+Paulo*%22%2Clocation.ilike.%22*Campinas*%22%29&location=not.ilike.%25Spain%25&order=scraped_at.desc&offset=0&limit=2";
+    const res = await fetch(`${baseUrl}/api/v1/rest/v1/jobs?${rawQuery}`, {
+      method: "GET",
+      headers: {
+        accept: "*/*",
+        prefer: "count=exact",
+      },
+    });
 
-      // Verify vendor headers are stripped
-      expect(res.headers.get("sb-project-ref")).toBeNull();
-      expect(res.headers.get("sb-gateway-version")).toBeNull();
-      expect(res.headers.get("sb-jwt-iss")).toBeNull();
-      expect(res.headers.get("server")).toBeNull();
+    expect(res.status).toBeGreaterThanOrEqual(200);
+    expect(res.status).toBeLessThan(300);
 
-      const data = await res.json();
-      expect(Array.isArray(data)).toBe(true);
-    }
+    // Verify vendor headers are stripped
+    expect(res.headers.get("sb-project-ref")).toBeNull();
+    expect(res.headers.get("sb-gateway-version")).toBeNull();
+    expect(res.headers.get("sb-jwt-iss")).toBeNull();
+    expect(res.headers.get("server")).toBeNull();
+    expect(res.headers.get("content-encoding")).toBeNull();
+
+    // Verify content-range is exposed
+    expect(res.headers.get("content-range")).toBeTruthy();
+
+    const data = (await res.json()) as Array<Record<string, unknown>>;
+    expect(Array.isArray(data)).toBe(true);
+    expect(data.length).toBeGreaterThan(0);
+  });
+
+  it("should handle simulated Vercel rewrites with path query param", async () => {
+    const vercelRewriteUrl = `${baseUrl}/api/index?path=%2Fv1%2Frest%2Fv1%2Fjobs&select=id%2Ctitle&limit=1`;
+    const res = await fetch(vercelRewriteUrl, {
+      method: "GET",
+      headers: {
+        accept: "*/*",
+        prefer: "count=exact",
+      },
+    });
+
+    expect(res.status).toBeGreaterThanOrEqual(200);
+    expect(res.status).toBeLessThan(300);
+
+    const data = (await res.json()) as Array<Record<string, unknown>>;
+    expect(Array.isArray(data)).toBe(true);
+    expect(data.length).toBe(1);
+  });
+
+  it("should handle Parser POST /api/jobs endpoint with clean payload", async () => {
+    const res = await fetch(`${baseUrl}/api/jobs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        location: "SP_REGION",
+        page: 1,
+        pageSize: 2,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { jobs: unknown[]; total: number; totalPages: number };
+    expect(data).toHaveProperty("jobs");
+    expect(data).toHaveProperty("total");
+    expect(data).toHaveProperty("totalPages");
+    expect(Array.isArray(data.jobs)).toBe(true);
+    expect(data.jobs.length).toBe(2);
+  });
+
+  it("should handle Parser GET /api/jobs/stats endpoint", async () => {
+    const res = await fetch(`${baseUrl}/api/jobs/stats`);
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      totalJobs: number;
+      byModel: Record<string, number>;
+      bySeniority: Record<string, number>;
+    };
+    expect(data).toHaveProperty("totalJobs");
+    expect(data).toHaveProperty("byModel");
+    expect(data).toHaveProperty("bySeniority");
+    expect(data.totalJobs).toBeGreaterThan(0);
   });
 });
