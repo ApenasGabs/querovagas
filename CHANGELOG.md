@@ -5,6 +5,16 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.4.0](https://github.com/ApenasGabs/querovagas/compare/v1.3.1...v1.4.0) (2026-10-14)
+
+### ✨ Features
+
+* **api:** implementar endpoints de empresas e sugestoes comunitarias com testes (Refs [#1](https://github.com/ApenasGabs/querovagas/issues/1)) ([7a37df6](https://github.com/ApenasGabs/querovagas/commit/7a37df6c32e9bb728a5b8cbf924283e08252e4bf))
+* **services:** implementar CompanyService com busca, fallback e upvote (Refs [#1](https://github.com/ApenasGabs/querovagas/issues/1)) ([9c88478](https://github.com/ApenasGabs/querovagas/commit/9c884788bbf6c46a18276a8a6ae58a24e3a03e63))
+* **types:** definir interfaces e catalogo inicial para radar de empresas (Refs [#1](https://github.com/ApenasGabs/querovagas/issues/1)) ([7929f4e](https://github.com/ApenasGabs/querovagas/commit/7929f4e44f19b1e3578249d7ed948c67fa98741a))
+* **ui:** implementar componentes do Radar de Empresas, formulario e DevPedia (Refs [#1](https://github.com/ApenasGabs/querovagas/issues/1)) ([615d6a9](https://github.com/ApenasGabs/querovagas/commit/615d6a922ee05ac2c953737e718c206cf1ea7199))
+* **utils:** criar utilitario de deteccao automatica de ATS com testes (Refs [#1](https://github.com/ApenasGabs/querovagas/issues/1)) ([a81c467](https://github.com/ApenasGabs/querovagas/commit/a81c4679a738e7304d94a57f1a1d8ea08df9866e))
+
 ## [1.3.1](https://github.com/ApenasGabs/querovagas/compare/v1.3.0...v1.3.1) (2026-10-14)
 
 ### 🐛 Bug Fixes
