@@ -20,6 +20,7 @@ Este template tem como objetivo fornecer uma base sólida e pronta para produç�
 - ✅ Ambiente de desenvolvimento rápido e reativo (HMR instantâneo)
 - ✅ Tipagem estática completa com TypeScript
 - ✅ Styling elegante com Tailwind CSS + daisyUI
+- ✅ **Radar de Empresas & Comunidade**: Painel interativo para verificar se empresas estão monitoradas, indicar novas ATS e apoiar empresas na fila (inspirado no DevPedia)
 - ✅ Testes unitários com Vitest
 - ✅ Testes end-to-end com Playwright
 - ✅ Linting e formatação de código com ESLint

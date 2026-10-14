@@ -4,14 +4,17 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageSquare,
+  Radar,
   Sparkles,
 } from "lucide-react";
 import type { ReactElement } from "react";
+import { useState } from "react";
 import { Alert } from "./components/Alert/Alert";
 import { Button } from "./components/Button/Button";
 import { Footer } from "./components/Footer/Footer";
 import { Navbar } from "./components/Navbar/Navbar";
 import ThemeSelector from "./components/ThemeSelector/ThemeSelector";
+import { CompanyRadarModal } from "./features/companies/components/CompanyRadarModal";
 import { JobCard } from "./features/jobs/components/JobCard";
 import { JobFilters } from "./features/jobs/components/JobFilters";
 import { JobModal } from "./features/jobs/components/JobModal";
@@ -46,6 +49,9 @@ export default function App(): ReactElement {
     refresh,
   } = useJobs(12);
 
+  const [isCompanyRadarOpen, setIsCompanyRadarOpen] = useState(false);
+  const [radarInitialQuery, setRadarInitialQuery] = useState("");
+
   // Link opcional para o Canal de transmissão do WhatsApp (broadcast público)
   const whatsappChannelUrl =
     (import.meta.env.VITE_WHATSAPP_CHANNEL_URL as string) || "";
@@ -70,6 +76,19 @@ export default function App(): ReactElement {
         }
       >
         <div className="flex items-center gap-2 md:gap-3">
+          {/* Botão de Radar de Empresas & Comunidade */}
+          <button
+            onClick={() => {
+              setRadarInitialQuery(search.trim());
+              setIsCompanyRadarOpen(true);
+            }}
+            className="btn btn-sm btn-outline btn-primary gap-1.5 shadow-xs"
+            title="Pesquisar se uma empresa é monitorada ou indicar nova empresa"
+          >
+            <Radar className="w-4 h-4" />
+            <span className="text-xs font-semibold hidden sm:inline">Radar de Empresas</span>
+          </button>
+
           {whatsappChannelUrl && (
             <a
               href={whatsappChannelUrl}
@@ -153,9 +172,24 @@ export default function App(): ReactElement {
                 Tente ajustar os termos de busca ou remover alguns filtros.
               </p>
             </div>
-            <Button variant="primary" size="sm" onClick={clearFilters}>
-              Limpar todos os filtros
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+              <Button variant="primary" size="sm" onClick={clearFilters}>
+                Limpar todos os filtros
+              </Button>
+              {search.trim() && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline btn-primary gap-1.5"
+                  onClick={() => {
+                    setRadarInitialQuery(search.trim());
+                    setIsCompanyRadarOpen(true);
+                  }}
+                >
+                  <Radar className="w-4 h-4" />
+                  <span>Ver se &ldquo;{search.trim()}&rdquo; é monitorada</span>
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-8">
@@ -201,6 +235,17 @@ export default function App(): ReactElement {
           </div>
         )}
       </main>
+
+      {/* Modal do Radar de Empresas & Comunidade */}
+      <CompanyRadarModal
+        isOpen={isCompanyRadarOpen}
+        onClose={() => setIsCompanyRadarOpen(false)}
+        initialSearchQuery={radarInitialQuery}
+        onSelectCompanyForSearch={(companyName) => {
+          setSearch(companyName);
+          setPage(1);
+        }}
+      />
 
       {/* Modal de Detalhes da Vaga */}
       <JobModal job={selectedJob} onClose={() => selectJob(null)} />

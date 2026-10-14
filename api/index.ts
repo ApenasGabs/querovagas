@@ -1,3 +1,4 @@
+import initialCatalog from "../src/data/monitoredCompanies.json";
 import { createClient } from "@supabase/supabase-js";
 import express, { type NextFunction, type Request, type Response } from "express";
 
@@ -315,6 +316,248 @@ app.get("/jobs/:id", async (req: Request, res: Response) => {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao buscar vaga";
+    res.status(500).json({ error: msg });
+  }
+});
+
+// -------------------------------------------------------------
+// 1.1 EMPRESAS & SUGESTÕES COMUNITÁRIAS (RADAR DE EMPRESAS)
+// -------------------------------------------------------------
+interface CompanyRecord {
+  id: string;
+  name: string;
+  slug: string;
+  ats: string;
+  careerUrl: string;
+  status: "MONITORED" | "PENDING_CRAWLER" | "SUGGESTED";
+  activeJobsCount?: number;
+  lastScrapedAt?: string;
+  suggestedBy?: string;
+  votesCount?: number;
+  notes?: string;
+  createdAt?: string;
+}
+
+// Armazenamento em memória com catálogo consolidado (funciona em Node, Edge, Serverless e JSDOM)
+const communitySuggestions: CompanyRecord[] = [];
+
+const readSuggestions = (): CompanyRecord[] => {
+  return [...communitySuggestions];
+};
+
+const writeSuggestions = (list: CompanyRecord[]): void => {
+  communitySuggestions.length = 0;
+  communitySuggestions.push(...list);
+};
+
+const readCatalog = (): CompanyRecord[] => {
+  return (initialCatalog as unknown as CompanyRecord[]) || [];
+};
+
+// GET /companies - Lista consolidada de empresas monitoradas e sugeridas
+app.get("/companies", async (req: Request, res: Response) => {
+  try {
+    const { search = "", ats = "ALL", status = "ALL" } = req.query;
+    const catalog = readCatalog();
+    const suggestions = readSuggestions();
+
+    // 1. Busca contagem de vagas ativas no Supabase para atualizar a quantidade por empresa
+    const companyJobCounts: Record<string, { count: number; source: string; sampleUrl: string }> = {};
+    try {
+      const { data } = await supabase.from("jobs").select("company, source, url").limit(2000);
+      if (data && Array.isArray(data)) {
+        for (const row of data) {
+          const compName = (row.company || "").trim();
+          if (!compName) continue;
+          const key = compName.toLowerCase();
+          if (!companyJobCounts[key]) {
+            companyJobCounts[key] = { count: 0, source: row.source || "OUTRO", sampleUrl: row.url || "" };
+          }
+          companyJobCounts[key].count++;
+        }
+      }
+    } catch {
+      // Continua sem contagem atualizada do Supabase em caso de erro
+    }
+
+    const companyMap = new Map<string, CompanyRecord>();
+
+    // 2. Adiciona catálogo base pré-cadastrado
+    for (const c of catalog) {
+      const normKey = c.name.toLowerCase();
+      const jobInfo = companyJobCounts[normKey];
+      companyMap.set(c.slug, {
+        ...c,
+        activeJobsCount: jobInfo ? jobInfo.count : 0,
+        status: "MONITORED",
+      });
+    }
+
+    // 3. Adiciona empresas encontradas no Supabase que porventura não estavam no catálogo estático
+    for (const [normKey, info] of Object.entries(companyJobCounts)) {
+      const matching = Array.from(companyMap.values()).find(
+        (c) => c.name.toLowerCase() === normKey,
+      );
+      if (!matching) {
+        const slug = normKey.replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
+        // Extrai URL limpa a partir do sampleUrl
+        let careerUrl = info.sampleUrl;
+        try {
+          const parsed = new URL(info.sampleUrl);
+          careerUrl = `${parsed.protocol}//${parsed.hostname}`;
+        } catch {
+          // Mantém URL original
+        }
+
+        const properName = normKey
+          .split(" ")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+
+        companyMap.set(slug, {
+          id: `supabase-${slug}`,
+          name: properName,
+          slug,
+          ats: info.source,
+          careerUrl,
+          status: "MONITORED",
+          activeJobsCount: info.count,
+        });
+      }
+    }
+
+    // 4. Adiciona sugestões da comunidade
+    for (const sug of suggestions) {
+      companyMap.set(sug.id, sug);
+    }
+
+    let result = Array.from(companyMap.values());
+
+    // 5. Aplica filtros
+    if (typeof search === "string" && search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.slug.includes(q) ||
+          c.ats.toLowerCase().includes(q) ||
+          (c.careerUrl && c.careerUrl.toLowerCase().includes(q)),
+      );
+    }
+
+    if (ats && ats !== "ALL") {
+      result = result.filter((c) => c.ats.toUpperCase() === String(ats).toUpperCase());
+    }
+
+    if (status && status !== "ALL") {
+      result = result.filter((c) => c.status === status);
+    }
+
+    // Ordenação: primeiro empresas com vagas ativas, depois por número de vagas ou votos
+    result.sort((a, b) => {
+      const countA = a.activeJobsCount || 0;
+      const countB = b.activeJobsCount || 0;
+      if (countA !== countB) return countB - countA;
+      const votesA = a.votesCount || 0;
+      const votesB = b.votesCount || 0;
+      if (votesA !== votesB) return votesB - votesA;
+      return a.name.localeCompare(b.name);
+    });
+
+    res.json(result);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Erro ao carregar radar de empresas";
+    res.status(500).json({ error: msg });
+  }
+});
+
+// POST /company-suggestions - Cria nova sugestão comunitária
+app.post("/company-suggestions", (req: Request, res: Response) => {
+  try {
+    const { name, careerUrl, ats = "OUTRO", notes, suggestedBy } = req.body || {};
+    const trimmedName = String(name || "").trim();
+    const trimmedUrl = String(careerUrl || "").trim();
+
+    if (!trimmedName) {
+      res.status(400).json({ error: "O nome da empresa é obrigatório." });
+      return;
+    }
+    if (!trimmedUrl) {
+      res.status(400).json({ error: "O link de carreiras da empresa é obrigatório." });
+      return;
+    }
+
+    const slug = trimmedName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "-")
+      .replace(/-+/g, "-");
+
+    const suggestions = readSuggestions();
+    const existing = suggestions.find(
+      (s) => s.slug === slug || (s.careerUrl && s.careerUrl.toLowerCase() === trimmedUrl.toLowerCase()),
+    );
+
+    if (existing) {
+      existing.votesCount = (existing.votesCount || 1) + 1;
+      writeSuggestions(suggestions);
+      res.status(200).json(existing);
+      return;
+    }
+
+    const newSuggestion: CompanyRecord = {
+      id: `sug-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: trimmedName,
+      slug,
+      ats: String(ats).toUpperCase(),
+      careerUrl: trimmedUrl,
+      status: "SUGGESTED",
+      activeJobsCount: 0,
+      suggestedBy: suggestedBy ? String(suggestedBy).trim() : "Membro da Comunidade",
+      votesCount: 1,
+      notes: notes ? String(notes).trim() : undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    suggestions.unshift(newSuggestion);
+    writeSuggestions(suggestions);
+
+    res.status(201).json(newSuggestion);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Erro ao registrar sugestão";
+    res.status(500).json({ error: msg });
+  }
+});
+
+// GET /company-suggestions - Lista apenas sugestões comunitárias
+app.get("/company-suggestions", (_req: Request, res: Response) => {
+  try {
+    const suggestions = readSuggestions();
+    suggestions.sort((a, b) => (b.votesCount || 0) - (a.votesCount || 0));
+    res.json(suggestions);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Erro ao carregar sugestões";
+    res.status(500).json({ error: msg });
+  }
+});
+
+// POST /company-suggestions/:id/upvote - Apoiar sugestão com voto comunitário
+app.post("/company-suggestions/:id/upvote", (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const suggestions = readSuggestions();
+    const target = suggestions.find((s) => s.id === id);
+
+    if (!target) {
+      res.status(404).json({ error: "Sugestão não encontrada" });
+      return;
+    }
+
+    target.votesCount = (target.votesCount || 1) + 1;
+    writeSuggestions(suggestions);
+
+    res.json({ id: target.id, votesCount: target.votesCount });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Erro ao apoiar sugestão";
     res.status(500).json({ error: msg });
   }
 });
