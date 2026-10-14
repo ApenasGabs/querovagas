@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.3.1](https://github.com/ApenasGabs/querovagas/compare/v1.3.0...v1.3.1) (2026-10-14)
+
+### 🐛 Bug Fixes
+
+* 🐛 corrige function invocation failed na vercel e adicionar parser de jobs ([7184aa7](https://github.com/ApenasGabs/querovagas/commit/7184aa73a5464b8055f215ce48be2b1dda5cebb5))
+
 ## [1.3.0](https://github.com/ApenasGabs/querovagas/compare/v1.2.0...v1.3.0) (2026-10-14)
 
 ### ✨ Features
