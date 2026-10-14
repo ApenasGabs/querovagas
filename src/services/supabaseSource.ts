@@ -51,28 +51,48 @@ export class SupabaseJobDataSource implements IJobDataSource {
     }
   }
 
+  private getFallbackClient(): SupabaseClient {
+    if (!this.client) {
+      const targetBase =
+        (typeof import.meta !== "undefined" && import.meta.env?.VITE_SUPABASE_URL) ||
+        "https://gglsmwtyrwadwxyvevmr.supabase.co";
+      const anonKey =
+        (typeof import.meta !== "undefined" && import.meta.env?.VITE_SUPABASE_ANON_KEY) ||
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnbHNtd3R5cndhZHd4eXZldm1yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MTI1MDIsImV4cCI6MjEwNTA4ODUwMn0.jSRnLVyzCse-Q1xiQ3--BwU4knRDvDSiaZpLEcY38bY";
+      this.client = createClient(targetBase, anonKey);
+    }
+    return this.client;
+  }
+
   public isConfigured(): boolean {
     return true;
   }
 
   public getJobs = async (params: JobFilterParams = {}): Promise<PaginatedJobs> => {
     if (this.isProxy) {
-      const res = await fetch(`${this.baseUrl}/jobs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-      });
+      try {
+        const res = await fetch(`${this.baseUrl}/jobs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+        });
 
-      if (!res.ok) {
-        throw new Error(`Erro ao carregar vagas: HTTP ${res.status}`);
+        if (res.ok) {
+          return (await res.json()) as PaginatedJobs;
+        }
+
+        console.warn(
+          `[SupabaseJobDataSource] Proxy retornou HTTP ${res.status}. Ativando fallback resiliente direto.`,
+        );
+      } catch (err) {
+        console.warn(
+          "[SupabaseJobDataSource] Falha na chamada proxy. Ativando fallback resiliente direto:",
+          err,
+        );
       }
-
-      return (await res.json()) as PaginatedJobs;
     }
 
-    if (!this.client) {
-      throw new Error("Cliente de dados não configurado.");
-    }
+    const client = this.getFallbackClient();
 
     const {
       search = "",
@@ -84,16 +104,18 @@ export class SupabaseJobDataSource implements IJobDataSource {
       pageSize = 12,
     } = params;
 
-    let query = this.client
+    let query = client
       .from(this.tableName)
       .select("*", { count: "exact" })
       .eq("is_tech", true);
 
     if (search.trim()) {
-      const q = search.trim();
-      query = query.or(
-        `title.ilike.%${q}%,company.ilike.%${q}%,location.ilike.%${q}%,description.ilike.%${q}%`,
-      );
+      const q = search.trim().replace(/[,()"]/g, " ").trim();
+      if (q) {
+        query = query.or(
+          `title.ilike.%${q}%,company.ilike.%${q}%,location.ilike.%${q}%,description.ilike.%${q}%`,
+        );
+      }
     }
 
     if (seniority && seniority !== "ALL") {
@@ -193,14 +215,19 @@ export class SupabaseJobDataSource implements IJobDataSource {
 
   public getJobById = async (id: string): Promise<Job | null> => {
     if (this.isProxy) {
-      const res = await fetch(`${this.baseUrl}/jobs/${id}`);
-      if (!res.ok) return null;
-      return (await res.json()) as Job;
+      try {
+        const res = await fetch(`${this.baseUrl}/jobs/${id}`);
+        if (res.ok) {
+          return (await res.json()) as Job;
+        }
+      } catch (err) {
+        console.warn("[SupabaseJobDataSource] Falha proxy getJobById. Usando fallback direto:", err);
+      }
     }
 
-    if (!this.client) return null;
+    const client = this.getFallbackClient();
 
-    const { data, error } = await this.client
+    const { data, error } = await client
       .from(this.tableName)
       .select("*")
       .eq("id", id)
@@ -229,18 +256,19 @@ export class SupabaseJobDataSource implements IJobDataSource {
 
   public getStats = async (): Promise<JobStats> => {
     if (this.isProxy) {
-      const res = await fetch(`${this.baseUrl}/jobs/stats`);
-      if (!res.ok) {
-        return { totalJobs: 0, byModel: {}, bySeniority: {}, bySource: {} };
+      try {
+        const res = await fetch(`${this.baseUrl}/jobs/stats`);
+        if (res.ok) {
+          return (await res.json()) as JobStats;
+        }
+      } catch (err) {
+        console.warn("[SupabaseJobDataSource] Falha proxy getStats. Usando fallback direto:", err);
       }
-      return (await res.json()) as JobStats;
     }
 
-    if (!this.client) {
-      return { totalJobs: 0, byModel: {}, bySeniority: {}, bySource: {} };
-    }
+    const client = this.getFallbackClient();
 
-    const { data, error } = await this.client
+    const { data, error } = await client
       .from(this.tableName)
       .select("work_model, seniority_level, source")
       .eq("is_tech", true);
