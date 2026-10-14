@@ -1,4 +1,7 @@
-[
+// Catálogo consolidado de empresas monitoradas pelas ATS (Gupy, Ashby, Lever, Greenhouse, Workable, InHire)
+import type { Company } from "../types/company";
+
+export const initialMonitoredCompanies: Company[] = [
   {
     "id": "comp-techne",
     "name": "Techne",
@@ -2919,4 +2922,6 @@
     "activeJobsCount": 0,
     "hasTechJobs": true
   }
-]
+];
+
+export default initialMonitoredCompanies;

@@ -19,6 +19,7 @@ export interface Company {
   careerUrl: string;
   status: CompanyStatus;
   activeJobsCount?: number;
+  hasTechJobs?: boolean;
   lastScrapedAt?: string;
   suggestedBy?: string;
   votesCount?: number;
