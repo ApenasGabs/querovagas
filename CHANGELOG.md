@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.3.0](https://github.com/ApenasGabs/querovagas/compare/v1.2.0...v1.3.0) (2026-10-14)
+
+### ✨ Features
+
+* ✨ implementa proxy reverso express ([c5511e1](https://github.com/ApenasGabs/querovagas/commit/c5511e165cc54a49d7c94ddc85f472233e4c8968))
+
 ## [1.2.0](https://github.com/ApenasGabs/querovagas/compare/v1.1.1...v1.2.0) (2026-09-16)
 
 ### ✨ Features
