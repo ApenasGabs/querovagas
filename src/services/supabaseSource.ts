@@ -1,19 +1,56 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
-import type { Job, JobFilterParams, JobStats, PaginatedJobs } from "../types/job";
+import type {
+  ContractType,
+  Job,
+  JobFilterParams,
+  JobStats,
+  PaginatedJobs,
+  SeniorityLevel,
+  WorkModel,
+} from "../types/job";
 import type { IJobDataSource } from "./dataSource.interface";
 import { CITY_QUERY_MAP, UF_QUERY_MAP } from "./locationConstants";
+
+interface RawJobRow {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  work_model?: WorkModel;
+  workModel?: WorkModel;
+  salary?: string;
+  contract_type?: ContractType;
+  contractType?: ContractType;
+  seniority_level?: SeniorityLevel;
+  seniorityLevel?: SeniorityLevel;
+  url: string;
+  source: string;
+  stack?: string[];
+  scraped_at?: string;
+  scrapedAt?: string;
+  description?: string;
+  is_tech?: boolean;
+}
 
 export class SupabaseJobDataSource implements IJobDataSource {
   private client: SupabaseClient | null = null;
   private tableName = "jobs";
 
   constructor(url?: string, anonKey?: string) {
-    const supabaseUrl = url || import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = anonKey || import.meta.env.VITE_SUPABASE_ANON_KEY;
+    // When no URL is provided, route through the local reverse proxy (/api/v1)
+    // to ensure backend vendor endpoints and credentials are never exposed in the client bundle.
+    const rawUrl = url || "/api/v1";
+    const supabaseKey = anonKey || "public-client-token";
 
-    if (supabaseUrl && supabaseKey) {
-      this.client = createClient(supabaseUrl, supabaseKey);
+    if (rawUrl) {
+      const resolvedUrl = rawUrl.startsWith("/")
+        ? typeof window !== "undefined" && window.location?.origin
+          ? `${window.location.origin}${rawUrl}`
+          : `http://localhost:5173${rawUrl}`
+        : rawUrl;
+
+      this.client = createClient(resolvedUrl, supabaseKey);
     }
   }
 
@@ -21,11 +58,9 @@ export class SupabaseJobDataSource implements IJobDataSource {
     return this.client !== null;
   }
 
-  public async getJobs(params: JobFilterParams = {}): Promise<PaginatedJobs> {
+  public getJobs = async (params: JobFilterParams = {}): Promise<PaginatedJobs> => {
     if (!this.client) {
-      throw new Error(
-        "Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.",
-      );
+      throw new Error("Cliente de dados não configurado.");
     }
 
     const {
@@ -116,16 +151,16 @@ export class SupabaseJobDataSource implements IJobDataSource {
       throw error;
     }
 
-    const rawJobs = data || [];
-    const jobs: Job[] = rawJobs.map((row: any) => ({
+    const rawJobs = (data as unknown as RawJobRow[]) || [];
+    const jobs: Job[] = rawJobs.map((row) => ({
       id: row.id,
       title: row.title,
       company: row.company,
       location: row.location,
-      workModel: row.work_model || row.workModel || "NAO_INFORMADO",
+      workModel: (row.work_model || row.workModel || "NAO_INFORMADO") as WorkModel,
       salary: row.salary || undefined,
-      contractType: row.contract_type || row.contractType || "CLT",
-      seniorityLevel: row.seniority_level || row.seniorityLevel || "NAO_INFORMADO",
+      contractType: (row.contract_type || row.contractType || "CLT") as ContractType,
+      seniorityLevel: (row.seniority_level || row.seniorityLevel || "NAO_INFORMADO") as SeniorityLevel,
       url: row.url,
       source: row.source,
       stack: Array.isArray(row.stack) ? row.stack : [],
@@ -144,9 +179,9 @@ export class SupabaseJobDataSource implements IJobDataSource {
       pageSize,
       totalPages,
     };
-  }
+  };
 
-  public async getJobById(id: string): Promise<Job | null> {
+  public getJobById = async (id: string): Promise<Job | null> => {
     if (!this.client) return null;
 
     const { data, error } = await this.client
@@ -157,25 +192,26 @@ export class SupabaseJobDataSource implements IJobDataSource {
 
     if (error || !data) return null;
 
+    const raw = data as unknown as RawJobRow;
     return {
-      id: data.id,
-      title: data.title,
-      company: data.company,
-      location: data.location,
-      workModel: data.work_model || data.workModel || "NAO_INFORMADO",
-      salary: data.salary || undefined,
-      contractType: data.contract_type || data.contractType || "CLT",
-      seniorityLevel: data.seniority_level || data.seniorityLevel || "NAO_INFORMADO",
-      url: data.url,
-      source: data.source,
-      stack: Array.isArray(data.stack) ? data.stack : [],
-      scrapedAt: data.scraped_at || data.scrapedAt,
-      description: data.description || undefined,
-      isTech: data.is_tech ?? true,
+      id: raw.id,
+      title: raw.title,
+      company: raw.company,
+      location: raw.location,
+      workModel: (raw.work_model || raw.workModel || "NAO_INFORMADO") as WorkModel,
+      salary: raw.salary || undefined,
+      contractType: (raw.contract_type || raw.contractType || "CLT") as ContractType,
+      seniorityLevel: (raw.seniority_level || raw.seniorityLevel || "NAO_INFORMADO") as SeniorityLevel,
+      url: raw.url,
+      source: raw.source,
+      stack: Array.isArray(raw.stack) ? raw.stack : [],
+      scrapedAt: raw.scraped_at || raw.scrapedAt || new Date().toISOString(),
+      description: raw.description || undefined,
+      isTech: raw.is_tech ?? true,
     };
-  }
+  };
 
-  public async getStats(): Promise<JobStats> {
+  public getStats = async (): Promise<JobStats> => {
     if (!this.client) {
       return { totalJobs: 0, byModel: {}, bySeniority: {}, bySource: {} };
     }
@@ -193,10 +229,12 @@ export class SupabaseJobDataSource implements IJobDataSource {
     const bySeniority: Record<string, number> = {};
     const bySource: Record<string, number> = {};
 
-    for (const row of data as any[]) {
-      const model = row.work_model || "NAO_INFORMADO";
-      const seniority = row.seniority_level || "NAO_INFORMADO";
-      const src = row.source || "OUTRO";
+    const rows = data as unknown as Record<string, unknown>[];
+    for (const row of rows) {
+      const model = typeof row.work_model === "string" ? row.work_model : "NAO_INFORMADO";
+      const seniority =
+        typeof row.seniority_level === "string" ? row.seniority_level : "NAO_INFORMADO";
+      const src = typeof row.source === "string" ? row.source : "OUTRO";
 
       byModel[model] = (byModel[model] || 0) + 1;
       bySeniority[seniority] = (bySeniority[seniority] || 0) + 1;
@@ -209,5 +247,5 @@ export class SupabaseJobDataSource implements IJobDataSource {
       bySeniority,
       bySource,
     };
-  }
+  };
 }

@@ -129,9 +129,11 @@ export function useJobs(pageSize = 12): UseJobsReturn {
         const stacks = await dataSource.getPopularStacks();
         setPopularStacks(stacks);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[useJobs] Erro ao carregar vagas:", err);
-      setError(err?.message || "Não foi possível carregar as vagas. Tente novamente.");
+      const errorMessage =
+        err instanceof Error ? err.message : "Não foi possível carregar as vagas. Tente novamente.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
