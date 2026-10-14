@@ -5,6 +5,14 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.4.1](https://github.com/ApenasGabs/querovagas/compare/v1.4.0...v1.4.1) (2026-10-14)
+
+### 🐛 Bug Fixes
+
+* **api:** converter catalogo para ts, tipar hasTechJobs e sanitizar query do parser (Refs [#3](https://github.com/ApenasGabs/querovagas/issues/3)) ([71efc31](https://github.com/ApenasGabs/querovagas/commit/71efc312e77e83b790c4cc556156cc234a496d88))
+* **services:** implementar fallback resiliente para Supabase no frontend (Refs [#3](https://github.com/ApenasGabs/querovagas/issues/3)) ([e67e9a2](https://github.com/ApenasGabs/querovagas/commit/e67e9a221c83d131df5d8084f6d8e51af6e88f4b))
+* **vite:** adicionar proxy /api para dev e preview (Refs [#3](https://github.com/ApenasGabs/querovagas/issues/3)) ([512ccc5](https://github.com/ApenasGabs/querovagas/commit/512ccc56c93924c4ae52adef89780bf2391d507a))
+
 ## [1.4.0](https://github.com/ApenasGabs/querovagas/compare/v1.3.1...v1.4.0) (2026-10-14)
 
 ### ✨ Features
