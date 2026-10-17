@@ -32,7 +32,6 @@ export default function App(): ReactElement {
     isVerified,
     message: authMessage,
     isModalOpen,
-    openModal,
     closeModal,
     signIn: handleSignIn,
     loginWithGithubOAuth,
