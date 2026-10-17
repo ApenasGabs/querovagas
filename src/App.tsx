@@ -14,6 +14,7 @@ import { Button } from "./components/Button/Button";
 import { Footer } from "./components/Footer/Footer";
 import { Navbar } from "./components/Navbar/Navbar";
 import ThemeSelector from "./components/ThemeSelector/ThemeSelector";
+import { GithubAuthModal } from "./features/auth/components/GithubAuthModal";
 import { NavbarAuth } from "./features/auth/components/NavbarAuth";
 import { useDeveloperAuth } from "./features/auth/hooks/useDeveloperAuth";
 import { CompanyRadarModal } from "./features/companies/components/CompanyRadarModal";
@@ -29,6 +30,9 @@ export default function App(): ReactElement {
     status: authStatus,
     user: authUser,
     isVerified,
+    isModalOpen,
+    openModal,
+    closeModal,
     signIn: handleSignIn,
     signOut: handleSignOut,
   } = useDeveloperAuth();
@@ -125,7 +129,7 @@ export default function App(): ReactElement {
           <NavbarAuth
             status={authStatus}
             user={authUser}
-            onSignIn={handleSignIn}
+            onSignIn={openModal}
             onSignOut={handleSignOut}
           />
 
@@ -305,6 +309,14 @@ export default function App(): ReactElement {
 
       {/* Modal de Detalhes da Vaga */}
       <JobModal job={selectedJob} onClose={() => selectJob(null)} />
+
+      {/* Modal de Identificação Direta com GitHub */}
+      <GithubAuthModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onSubmit={handleSignIn}
+        initialUsername={authUser?.username || ""}
+      />
 
       {/* Rodapé da Aplicação */}
       <Footer />

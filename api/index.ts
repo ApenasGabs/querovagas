@@ -465,26 +465,37 @@ app.get("/jobs/:id", async (req: Request, res: Response) => {
 // -------------------------------------------------------------
 app.post("/auth/verify-trust", async (req: Request, res: Response) => {
   try {
-    const { token, username: rawUsername } = req.body || {};
-    let candidateUsername = typeof rawUsername === "string" ? rawUsername.trim() : "";
-
-    // Se fornecido token do Supabase, valida identidade e extrai o username do GitHub
-    if (token && typeof token === "string") {
-      const { data, error } = await supabase.auth.getUser(token);
-      if (!error && data?.user) {
-        const meta = data.user.user_metadata || {};
-        candidateUsername =
-          meta.user_name ||
-          meta.preferred_username ||
-          meta.user_name_github ||
-          meta.name ||
-          candidateUsername;
-      }
-    }
+    const { username: rawUsername } = req.body || {};
+    let candidateUsername = typeof rawUsername === "string" ? rawUsername.trim().replace(/^@+/, "") : "";
 
     if (!candidateUsername) {
-      res.status(400).json({ error: "Identificador de perfil não informado" });
+      res.status(400).json({ error: "Identificador de perfil do GitHub não informado" });
       return;
+    }
+
+    let avatarUrl: string | undefined;
+    let name: string | undefined;
+
+    // Busca dados públicos do perfil diretamente na API do GitHub
+    try {
+      const headers: Record<string, string> = {
+        "User-Agent": "QueroVagas-DevTrustEngine/1.0",
+        Accept: "application/vnd.github+json",
+      };
+      if (DEV_AUDIT_TOKEN) {
+        headers["Authorization"] = `Bearer ${DEV_AUDIT_TOKEN}`;
+      }
+      const ghRes = await fetch(`https://api.github.com/users/${encodeURIComponent(candidateUsername)}`, { headers });
+      if (ghRes.ok) {
+        const ghData = (await ghRes.json()) as { avatar_url?: string; name?: string; login?: string };
+        avatarUrl = ghData.avatar_url;
+        name = ghData.name || ghData.login || candidateUsername;
+        if (ghData.login) {
+          candidateUsername = ghData.login;
+        }
+      }
+    } catch {
+      // Ignora falhas de rede na busca do perfil e segue para verificação
     }
 
     const isVerified = await checkDeveloperReputation(candidateUsername);
@@ -496,6 +507,11 @@ app.post("/auth/verify-trust", async (req: Request, res: Response) => {
         isVerified: true,
         trustToken,
         username: candidateUsername,
+        user: {
+          username: candidateUsername,
+          name: name || candidateUsername,
+          avatarUrl,
+        },
       });
       return;
     }
@@ -503,9 +519,13 @@ app.post("/auth/verify-trust", async (req: Request, res: Response) => {
     res.json({
       ok: true,
       isVerified: false,
-      code: "COMMUNITY_QUEUE",
-      message: "Perfil sincronizado. Em fila de validação da comunidade técnica.",
       username: candidateUsername,
+      user: {
+        username: candidateUsername,
+        name: name || candidateUsername,
+        avatarUrl,
+      },
+      message: "Perfil não atende aos requisitos de conexão da comunidade.",
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao validar perfil";
