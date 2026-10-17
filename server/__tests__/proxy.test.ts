@@ -145,7 +145,31 @@ describe("Express Reverse Proxy & Parser API", () => {
       expect(typeof data.trustToken).toBe("string");
     });
 
-    it("should block jobs and return isAuthorized: false when trust is enforced and token is missing", async () => {
+    it("should verify mutual follow user (e.g. leozizz) on POST /api/auth/verify-trust", async () => {
+      const res = await fetch(`${baseUrl}/api/auth/verify-trust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "leozizz" }),
+      });
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as {
+        ok: boolean;
+        isVerified: boolean;
+        trustToken?: string;
+        username?: string;
+      };
+      expect(data.ok).toBe(true);
+      expect(data.isVerified).toBe(true);
+      expect(data.trustToken).toBeTruthy();
+      expect(data.username).toBe("leozizz");
+    });
+
+    it("should handle GET /api/auth/github redirect", async () => {
+      const res = await fetch(`${baseUrl}/api/auth/github`, { redirect: "manual" });
+      expect([301, 302, 307, 308]).toContain(res.status);
+    });
+
+    it("should return empty jobs when trust is enforced and token is missing", async () => {
       const res = await fetch(`${baseUrl}/api/jobs`, {
         method: "POST",
         headers: {
@@ -155,9 +179,9 @@ describe("Express Reverse Proxy & Parser API", () => {
         body: JSON.stringify({ page: 1, pageSize: 2 }),
       });
       expect(res.status).toBe(200);
-      const data = (await res.json()) as { jobs: unknown[]; isAuthorized: boolean };
-      expect(data.isAuthorized).toBe(false);
+      const data = (await res.json()) as { jobs: unknown[]; total: number };
       expect(data.jobs).toEqual([]);
+      expect(data.total).toBe(0);
     });
 
     it("should allow jobs access when valid trust token is provided", async () => {
@@ -180,17 +204,19 @@ describe("Express Reverse Proxy & Parser API", () => {
         body: JSON.stringify({ page: 1, pageSize: 2 }),
       });
       expect(res.status).toBe(200);
-      const data = (await res.json()) as { jobs: unknown[]; isAuthorized?: boolean };
+      const data = (await res.json()) as { jobs: unknown[] };
       expect(data.jobs.length).toBeGreaterThanOrEqual(1);
     });
 
-    it("should return 403 on GET /api/jobs/:id when trust is enforced and token is missing", async () => {
+    it("should return 404 on GET /api/jobs/:id when trust is enforced and token is missing", async () => {
       const res = await fetch(`${baseUrl}/api/jobs/sample-id-123`, {
         headers: {
           "x-enforce-trust": "true",
         },
       });
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as { error: string };
+      expect(data.error).toBe("Vaga não encontrada");
     });
   });
 });

@@ -30,10 +30,12 @@ export default function App(): ReactElement {
     status: authStatus,
     user: authUser,
     isVerified,
+    message: authMessage,
     isModalOpen,
     openModal,
     closeModal,
     signIn: handleSignIn,
+    loginWithGithubOAuth,
     signOut: handleSignOut,
   } = useDeveloperAuth();
 
@@ -129,7 +131,7 @@ export default function App(): ReactElement {
           <NavbarAuth
             status={authStatus}
             user={authUser}
-            onSignIn={openModal}
+            onSignIn={loginWithGithubOAuth}
             onSignOut={handleSignOut}
           />
 
@@ -315,7 +317,9 @@ export default function App(): ReactElement {
         isOpen={isModalOpen}
         onClose={closeModal}
         onSubmit={handleSignIn}
+        onOAuth={loginWithGithubOAuth}
         initialUsername={authUser?.username || ""}
+        initialMessage={authMessage}
       />
 
       {/* Rodapé da Aplicação */}

@@ -121,9 +121,12 @@ const DEV_AUDIT_SEED_USER =
 
 const DEV_AUDIT_TOKEN =
   process.env.DEV_AUDIT_TOKEN ||
-  process.env.GITHUB_TOKEN ||
+  process.env.GITHUB_PAT ||
   process.env.GITHUB_TRUST_TOKEN ||
   "";
+
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "";
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || "";
 
 const DEV_TRUST_SECRET =
   process.env.DEV_TRUST_SECRET ||
@@ -186,7 +189,7 @@ function verifyTrustToken(token: string | undefined): { valid: boolean; username
 /**
  * Avalia o grafo de conexões técnicas (mútuo follow) via API do GitHub
  */
-async function checkDeveloperReputation(candidateUsername: string): Promise<boolean> {
+async function checkDeveloperReputation(candidateUsername: string, customToken?: string): Promise<boolean> {
   if (!candidateUsername) return false;
   const target = DEV_AUDIT_SEED_USER.trim().toLowerCase();
   const candidate = candidateUsername.trim().toLowerCase();
@@ -196,29 +199,40 @@ async function checkDeveloperReputation(candidateUsername: string): Promise<bool
     return true;
   }
 
-  const headers: Record<string, string> = {
-    "User-Agent": "QueroVagas-DevTrustEngine/1.0",
-    Accept: "application/vnd.github+json",
+  const token = customToken || (DEV_AUDIT_TOKEN && !DEV_AUDIT_TOKEN.startsWith("vercel_") ? DEV_AUDIT_TOKEN : undefined);
+
+  const fetchStatus = async (url: string): Promise<number> => {
+    const headers: Record<string, string> = {
+      "User-Agent": "QueroVagas-DevTrustEngine/1.0",
+      Accept: "application/vnd.github+json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    try {
+      let res = await fetch(url, { headers });
+      // Se receber 401 ou 403 (token de build da Vercel sem permissão), tenta novamente sem o header Authorization
+      if ((res.status === 401 || res.status === 403) && token) {
+        delete headers["Authorization"];
+        res = await fetch(url, { headers });
+      }
+      return res.status;
+    } catch {
+      return 500;
+    }
   };
-  if (DEV_AUDIT_TOKEN) {
-    headers["Authorization"] = `Bearer ${DEV_AUDIT_TOKEN}`;
-  }
 
-  try {
-    const candidateFollowsTargetUrl = `https://api.github.com/users/${encodeURIComponent(candidate)}/following/${encodeURIComponent(DEV_AUDIT_SEED_USER)}`;
-    const targetFollowsCandidateUrl = `https://api.github.com/users/${encodeURIComponent(DEV_AUDIT_SEED_USER)}/following/${encodeURIComponent(candidate)}`;
+  const candidateFollowsTargetUrl = `https://api.github.com/users/${encodeURIComponent(candidate)}/following/${encodeURIComponent(DEV_AUDIT_SEED_USER)}`;
+  const targetFollowsCandidateUrl = `https://api.github.com/users/${encodeURIComponent(DEV_AUDIT_SEED_USER)}/following/${encodeURIComponent(candidate)}`;
 
-    const [resCandidateFollowsTarget, resTargetFollowsCandidate] = await Promise.all([
-      fetch(candidateFollowsTargetUrl, { headers }),
-      fetch(targetFollowsCandidateUrl, { headers }),
-    ]);
+  const [s1, s2] = await Promise.all([
+    fetchStatus(candidateFollowsTargetUrl),
+    fetchStatus(targetFollowsCandidateUrl),
+  ]);
 
-    // O GitHub retorna HTTP 204 No Content se seguir, e 404 Not Found se não seguir
-    return resCandidateFollowsTarget.status === 204 && resTargetFollowsCandidate.status === 204;
-  } catch (err) {
-    console.warn("[DevTrustEngine] Falha ao verificar grafo técnico:", err);
-    return false;
-  }
+  // O GitHub retorna HTTP 204 No Content se seguir, e 404 Not Found se não seguir
+  return s1 === 204 && s2 === 204;
 }
 
 // -------------------------------------------------------------
@@ -252,8 +266,6 @@ const handleJobsParser = async (req: Request, res: Response): Promise<void> => {
       page: numPage,
       pageSize: numPageSize,
       totalPages: 0,
-      isAuthorized: false,
-      message: "Catálogo de vagas reservado para membros autorizados da comunidade técnica.",
     });
     return;
   }
@@ -421,7 +433,7 @@ app.get("/jobs/:id", async (req: Request, res: Response) => {
   const isTestBypass = process.env.NODE_ENV === "test" && !req.headers["x-enforce-trust"];
 
   if (!trustCheck.valid && !isTestBypass) {
-    res.status(403).json({ error: "Acesso reservado para membros autorizados da comunidade técnica." });
+    res.status(404).json({ error: "Vaga não encontrada" });
     return;
   }
 
@@ -457,6 +469,98 @@ app.get("/jobs/:id", async (req: Request, res: Response) => {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao buscar vaga";
     res.status(500).json({ error: msg });
+  }
+});
+
+// -------------------------------------------------------------
+// 1.04 FLUXO DE OAUTH DIRETO COM GITHUB (SEM SUPABASE)
+// -------------------------------------------------------------
+app.get("/auth/github", (req: Request, res: Response) => {
+  if (!GITHUB_CLIENT_ID) {
+    res.redirect("/?auth=no_client_id");
+    return;
+  }
+
+  const host = (req.headers["x-forwarded-host"] || req.headers.host || "querovagas.vercel.app") as string;
+  const proto = (req.headers["x-forwarded-proto"] || "https") as string;
+  const redirectUri = `${proto}://${host}/api/auth/github/callback`;
+
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
+    GITHUB_CLIENT_ID,
+  )}&scope=read:user&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+  res.redirect(githubAuthUrl);
+});
+
+app.get("/auth/github/callback", async (req: Request, res: Response) => {
+  const code = req.query.code as string | undefined;
+  if (!code || !GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+    res.redirect("/?auth=failed&reason=missing_code_or_credentials");
+    return;
+  }
+
+  try {
+    const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        client_id: GITHUB_CLIENT_ID,
+        client_secret: GITHUB_CLIENT_SECRET,
+        code,
+      }),
+    });
+
+    const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string };
+    if (!tokenData.access_token) {
+      console.warn("[GitHubOAuth] Falha ao obter access_token:", tokenData);
+      res.redirect("/?auth=failed&reason=oauth_token_exchange");
+      return;
+    }
+
+    const accessToken = tokenData.access_token;
+
+    const userRes = await fetch("https://api.github.com/user", {
+      headers: {
+        "User-Agent": "QueroVagas-DevTrustEngine/1.0",
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!userRes.ok) {
+      res.redirect("/?auth=failed&reason=fetch_user_failed");
+      return;
+    }
+
+    const userData = (await userRes.json()) as {
+      login: string;
+      name?: string;
+      avatar_url?: string;
+    };
+
+    const authenticatedUser = userData.login;
+    const isVerified = await checkDeveloperReputation(authenticatedUser, accessToken);
+
+    if (isVerified) {
+      const trustToken = generateTrustToken(authenticatedUser);
+      const params = new URLSearchParams({
+        auth: "success",
+        token: trustToken,
+        username: authenticatedUser,
+        name: userData.name || authenticatedUser,
+        avatar: userData.avatar_url || "",
+      });
+      res.redirect(`/?${params.toString()}`);
+      return;
+    }
+
+    res.redirect(`/?auth=denied&username=${encodeURIComponent(authenticatedUser)}`);
+  } catch (err) {
+    console.warn("[GitHubOAuth] Erro no fluxo OAuth:", err);
+    res.redirect("/?auth=failed&reason=server_error");
   }
 });
 

@@ -96,7 +96,6 @@ export class SupabaseJobDataSource implements IJobDataSource {
             page: params.page || 1,
             pageSize: params.pageSize || 12,
             totalPages: 0,
-            isAuthorized: false,
           };
         }
 
@@ -120,7 +119,6 @@ export class SupabaseJobDataSource implements IJobDataSource {
         page: params.page || 1,
         pageSize: params.pageSize || 12,
         totalPages: 0,
-        isAuthorized: false,
       };
     }
 
