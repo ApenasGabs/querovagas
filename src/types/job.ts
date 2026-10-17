@@ -44,6 +44,8 @@ export interface PaginatedJobs {
   page: number;
   pageSize: number;
   totalPages: number;
+  isAuthorized?: boolean;
+  message?: string;
 }
 
 export interface JobStats {

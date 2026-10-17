@@ -26,6 +26,9 @@ interface CompanyRadarModalProps {
   onClose: () => void;
   onSelectCompanyForSearch?: (companyName: string) => void;
   initialSearchQuery?: string;
+  inline?: boolean;
+  defaultTab?: TabType;
+  defaultSuggestedBy?: string;
 }
 
 export function CompanyRadarModal({
@@ -33,8 +36,13 @@ export function CompanyRadarModal({
   onClose,
   onSelectCompanyForSearch,
   initialSearchQuery = "",
+  inline = false,
+  defaultTab,
+  defaultSuggestedBy = "",
 }: CompanyRadarModalProps): ReactElement | null {
-  const [activeTab, setActiveTab] = useState<TabType>("search");
+  const [activeTab, setActiveTab] = useState<TabType>(
+    defaultTab ?? (inline ? "suggest" : "search"),
+  );
   const [searchTerm, setSearchTerm] = useState(initialSearchQuery);
   const [selectedATS, setSelectedATS] = useState<string>("ALL");
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -49,9 +57,9 @@ export function CompanyRadarModal({
     setSearchTerm(initialSearchQuery);
   }
 
-  // Carrega empresas ao abrir
+  // Carrega empresas ao abrir ou montar inline
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen && !inline) return;
 
     let isMounted = true;
 
@@ -81,7 +89,7 @@ export function CompanyRadarModal({
     return () => {
       isMounted = false;
     };
-  }, [isOpen]);
+  }, [isOpen, inline]);
 
   // Filtra as empresas na aba de busca
   const filteredCompanies = useMemo(() => {
@@ -158,12 +166,17 @@ export function CompanyRadarModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !inline) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-base-200 text-base-content rounded-3xl border border-base-300 shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden">
-        {/* Topo do Modal */}
+  const content = (
+      <div
+        className={
+          inline
+            ? "bg-base-200 text-base-content rounded-3xl border border-base-300 shadow-xs w-full flex flex-col overflow-hidden"
+            : "bg-base-200 text-base-content rounded-3xl border border-base-300 shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden"
+        }
+      >
+        {/* Topo do Painel */}
         <div className="p-4 sm:p-6 bg-base-100 border-b border-base-300 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -184,13 +197,15 @@ export function CompanyRadarModal({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="btn btn-sm btn-circle btn-ghost"
-            title="Fechar painel"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!inline && (
+            <button
+              onClick={onClose}
+              className="btn btn-sm btn-circle btn-ghost"
+              title="Fechar painel"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Abas de Navegação */}
@@ -315,20 +330,22 @@ export function CompanyRadarModal({
                           </h4>
                           <p className="text-xs text-base-content/70">
                             Plataforma: <strong>{exactMatch.ats}</strong>
-                            {exactMatch.activeJobsCount
+                            {onSelectCompanyForSearch && exactMatch.activeJobsCount
                               ? ` • ${exactMatch.activeJobsCount} vagas abertas no momento`
                               : " • Ciclo de varredura automático ativo"}
                           </p>
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleViewJobs(exactMatch.name)}
-                        className="btn btn-sm btn-success text-success-content gap-1.5 shrink-0"
-                      >
-                        <Flame className="w-4 h-4" />
-                        <span>Ver Vagas Abertas</span>
-                      </button>
+                      {onSelectCompanyForSearch && (
+                        <button
+                          onClick={() => handleViewJobs(exactMatch.name)}
+                          className="btn btn-sm btn-success text-success-content gap-1.5 shrink-0"
+                        >
+                          <Flame className="w-4 h-4" />
+                          <span>Ver Vagas Abertas</span>
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <div className="alert alert-warning/15 border border-warning/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -411,7 +428,7 @@ export function CompanyRadarModal({
                         company={c}
                         hasVoted={Boolean(votedCompanies[c.id])}
                         onUpvote={handleUpvote}
-                        onViewJobs={handleViewJobs}
+                        onViewJobs={onSelectCompanyForSearch ? handleViewJobs : undefined}
                       />
                     ))}
                   </div>
@@ -424,6 +441,7 @@ export function CompanyRadarModal({
           {activeTab === "suggest" && (
             <CompanySuggestionForm
               initialName={prefilledName}
+              defaultSuggestedBy={defaultSuggestedBy}
               onSuccess={handleSuggestSuccess}
               onCancel={() => setActiveTab("search")}
             />
@@ -480,7 +498,7 @@ export function CompanyRadarModal({
                       company={c}
                       hasVoted={Boolean(votedCompanies[c.id])}
                       onUpvote={handleUpvote}
-                      onViewJobs={handleViewJobs}
+                      onViewJobs={onSelectCompanyForSearch ? handleViewJobs : undefined}
                     />
                   ))}
                 </div>
@@ -492,6 +510,15 @@ export function CompanyRadarModal({
           {activeTab === "devpedia" && <CommunityDiscussions />}
         </div>
       </div>
+  );
+
+  if (inline) {
+    return content;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      {content}
     </div>
   );
 }

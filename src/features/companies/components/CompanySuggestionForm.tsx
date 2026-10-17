@@ -7,12 +7,14 @@ import { companyService } from "../../../services/companyService";
 
 interface CompanySuggestionFormProps {
   initialName?: string;
+  defaultSuggestedBy?: string;
   onSuccess: (newCompany: Company) => void;
   onCancel?: () => void;
 }
 
 export function CompanySuggestionForm({
   initialName = "",
+  defaultSuggestedBy = "",
   onSuccess,
   onCancel,
 }: CompanySuggestionFormProps): ReactElement {
@@ -20,7 +22,7 @@ export function CompanySuggestionForm({
   const [careerUrl, setCareerUrl] = useState("");
   const [ats, setAts] = useState<ATSPlatform | "OUTRO">("OUTRO");
   const [notes, setNotes] = useState("");
-  const [suggestedBy, setSuggestedBy] = useState("");
+  const [suggestedBy, setSuggestedBy] = useState(defaultSuggestedBy);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -30,6 +32,14 @@ export function CompanySuggestionForm({
   if (initialName !== prevInitialName) {
     setPrevInitialName(initialName);
     setName(initialName);
+  }
+
+  const [prevSuggestedBy, setPrevSuggestedBy] = useState(defaultSuggestedBy);
+  if (defaultSuggestedBy !== prevSuggestedBy) {
+    setPrevSuggestedBy(defaultSuggestedBy);
+    if (!suggestedBy) {
+      setSuggestedBy(defaultSuggestedBy);
+    }
   }
 
   // Detecção em tempo real de plataforma ATS

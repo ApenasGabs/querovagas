@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { Server } from "http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import app from "../app";
@@ -114,5 +115,82 @@ describe("Express Reverse Proxy & Parser API", () => {
     expect(data).toHaveProperty("byModel");
     expect(data).toHaveProperty("bySeniority");
     expect(data.totalJobs).toBeGreaterThan(0);
+  });
+
+  describe("Developer Trust & Community Auth Protection", () => {
+    it("should return isVerified: false on GET /api/auth/session without trust token", async () => {
+      const res = await fetch(`${baseUrl}/api/auth/session`);
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { isVerified: boolean; username: string | null };
+      expect(data.isVerified).toBe(false);
+      expect(data.username).toBeNull();
+    });
+
+    it("should verify anchor seed user and return signed trust token on POST /api/auth/verify-trust", async () => {
+      const res = await fetch(`${baseUrl}/api/auth/verify-trust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "ApenasGabs" }),
+      });
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as {
+        ok: boolean;
+        isVerified: boolean;
+        trustToken?: string;
+        username?: string;
+      };
+      expect(data.ok).toBe(true);
+      expect(data.isVerified).toBe(true);
+      expect(data.trustToken).toBeTruthy();
+      expect(typeof data.trustToken).toBe("string");
+    });
+
+    it("should block jobs and return isAuthorized: false when trust is enforced and token is missing", async () => {
+      const res = await fetch(`${baseUrl}/api/jobs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-enforce-trust": "true",
+        },
+        body: JSON.stringify({ page: 1, pageSize: 2 }),
+      });
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { jobs: unknown[]; isAuthorized: boolean };
+      expect(data.isAuthorized).toBe(false);
+      expect(data.jobs).toEqual([]);
+    });
+
+    it("should allow jobs access when valid trust token is provided", async () => {
+      // 1. Gera o token para o anchor user
+      const authRes = await fetch(`${baseUrl}/api/auth/verify-trust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "ApenasGabs" }),
+      });
+      const { trustToken } = (await authRes.json()) as { trustToken: string };
+
+      // 2. Consulta vagas com o token
+      const res = await fetch(`${baseUrl}/api/jobs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-trust-token": trustToken,
+          "x-enforce-trust": "true",
+        },
+        body: JSON.stringify({ page: 1, pageSize: 2 }),
+      });
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as { jobs: unknown[]; isAuthorized?: boolean };
+      expect(data.jobs.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("should return 403 on GET /api/jobs/:id when trust is enforced and token is missing", async () => {
+      const res = await fetch(`${baseUrl}/api/jobs/sample-id-123`, {
+        headers: {
+          "x-enforce-trust": "true",
+        },
+      });
+      expect(res.status).toBe(403);
+    });
   });
 });
