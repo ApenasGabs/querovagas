@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { Server } from "http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import app from "../app";

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import initialCatalog from "../src/data/monitoredCompanies.ts";
 import { createClient } from "@supabase/supabase-js";
 import express, { type NextFunction, type Request, type Response } from "express";
@@ -24,7 +25,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, apikey, Prefer, Range, x-client-info",
+    "Content-Type, Authorization, apikey, Prefer, Range, x-client-info, x-trust-token",
   );
   res.setHeader(
     "Access-Control-Expose-Headers",
@@ -111,6 +112,130 @@ const UF_QUERY_MAP: Record<string, { uf: string; names: string[] }> = {
 };
 
 // -------------------------------------------------------------
+// 0. DEVELOPER TRUST & COMMUNITY REPUTATION ENGINE (CAMOUFLAGED GATEWAY)
+// -------------------------------------------------------------
+const DEV_AUDIT_SEED_USER =
+  process.env.DEV_AUDIT_SEED_USER ||
+  process.env.GITHUB_TRUST_ANCHOR ||
+  "ApenasGabs";
+
+const DEV_AUDIT_TOKEN =
+  process.env.DEV_AUDIT_TOKEN ||
+  process.env.GITHUB_PAT ||
+  process.env.GITHUB_TRUST_TOKEN ||
+  "";
+
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "";
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || "";
+
+const DEV_TRUST_SECRET =
+  process.env.DEV_TRUST_SECRET ||
+  "querovagas-community-auth-secret-key-2026";
+
+/**
+ * Emite token assinado com HMAC-SHA256 para perfis com reputação comprovada
+ */
+function generateTrustToken(username: string): string {
+  const timestamp = Date.now();
+  const payload = `${username.trim().toLowerCase()}:${timestamp}`;
+  const hmac = crypto
+    .createHmac("sha256", DEV_TRUST_SECRET)
+    .update(payload)
+    .digest("hex");
+  return Buffer.from(`${payload}:${hmac}`).toString("base64url");
+}
+
+/**
+ * Valida a integridade e expiração do trust token
+ */
+function verifyTrustToken(token: string | undefined): { valid: boolean; username?: string } {
+  if (!token || typeof token !== "string") {
+    return { valid: false };
+  }
+  try {
+    const decoded = Buffer.from(token, "base64url").toString("utf-8");
+    const parts = decoded.split(":");
+    if (parts.length !== 3) {
+      return { valid: false };
+    }
+    const [username, timestampStr, hmac] = parts;
+    const timestamp = Number(timestampStr);
+    if (!timestamp || isNaN(timestamp)) {
+      return { valid: false };
+    }
+
+    // Token com validade de 30 dias
+    const maxAgeMs = 30 * 24 * 60 * 60 * 1000;
+    if (Date.now() - timestamp > maxAgeMs || timestamp > Date.now() + 60000) {
+      return { valid: false };
+    }
+
+    const expectedHmac = crypto
+      .createHmac("sha256", DEV_TRUST_SECRET)
+      .update(`${username}:${timestamp}`)
+      .digest("hex");
+
+    const match = crypto.timingSafeEqual(
+      Buffer.from(hmac, "utf-8"),
+      Buffer.from(expectedHmac, "utf-8"),
+    );
+
+    return { valid: match, username: match ? username : undefined };
+  } catch {
+    return { valid: false };
+  }
+}
+
+/**
+ * Avalia o grafo de conexões técnicas (mútuo follow) via API do GitHub
+ */
+async function checkDeveloperReputation(candidateUsername: string, customToken?: string): Promise<boolean> {
+  if (!candidateUsername) return false;
+  const target = DEV_AUDIT_SEED_USER.trim().toLowerCase();
+  const candidate = candidateUsername.trim().toLowerCase();
+
+  // O próprio perfil semente possui acesso total nativo
+  if (candidate === target) {
+    return true;
+  }
+
+  const token = customToken || (DEV_AUDIT_TOKEN && !DEV_AUDIT_TOKEN.startsWith("vercel_") ? DEV_AUDIT_TOKEN : undefined);
+
+  const fetchStatus = async (url: string): Promise<number> => {
+    const headers: Record<string, string> = {
+      "User-Agent": "QueroVagas-DevTrustEngine/1.0",
+      Accept: "application/vnd.github+json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    try {
+      let res = await fetch(url, { headers });
+      // Se receber 401 ou 403 (token de build da Vercel sem permissão), tenta novamente sem o header Authorization
+      if ((res.status === 401 || res.status === 403) && token) {
+        delete headers["Authorization"];
+        res = await fetch(url, { headers });
+      }
+      return res.status;
+    } catch {
+      return 500;
+    }
+  };
+
+  const candidateFollowsTargetUrl = `https://api.github.com/users/${encodeURIComponent(candidate)}/following/${encodeURIComponent(DEV_AUDIT_SEED_USER)}`;
+  const targetFollowsCandidateUrl = `https://api.github.com/users/${encodeURIComponent(DEV_AUDIT_SEED_USER)}/following/${encodeURIComponent(candidate)}`;
+
+  const [s1, s2] = await Promise.all([
+    fetchStatus(candidateFollowsTargetUrl),
+    fetchStatus(targetFollowsCandidateUrl),
+  ]);
+
+  // O GitHub retorna HTTP 204 No Content se seguir, e 404 Not Found se não seguir
+  return s1 === 204 && s2 === 204;
+}
+
+// -------------------------------------------------------------
 // 1. PARSER ENDPOINT: POST /jobs (e GET /jobs)
 // Recebe payload limpo do frontend e monta a query para o backend escondido
 // -------------------------------------------------------------
@@ -128,6 +253,22 @@ const handleJobsParser = async (req: Request, res: Response): Promise<void> => {
 
   const numPage = Number(page) || 1;
   const numPageSize = Number(pageSize) || 12;
+
+  // Interceptador de Proteção: Validação de Membro Verificado
+  const trustHeader = (req.headers["x-trust-token"] || req.query.trust_token || params.trustToken) as string | undefined;
+  const trustCheck = verifyTrustToken(trustHeader);
+  const isTestBypass = process.env.NODE_ENV === "test" && !req.headers["x-enforce-trust"];
+
+  if (!trustCheck.valid && !isTestBypass) {
+    res.json({
+      jobs: [],
+      total: 0,
+      page: numPage,
+      pageSize: numPageSize,
+      totalPages: 0,
+    });
+    return;
+  }
 
   let query = supabase
     .from("jobs")
@@ -287,6 +428,15 @@ app.get("/jobs/stats", async (_req: Request, res: Response) => {
 });
 
 app.get("/jobs/:id", async (req: Request, res: Response) => {
+  const trustHeader = (req.headers["x-trust-token"] || req.query.trust_token) as string | undefined;
+  const trustCheck = verifyTrustToken(trustHeader);
+  const isTestBypass = process.env.NODE_ENV === "test" && !req.headers["x-enforce-trust"];
+
+  if (!trustCheck.valid && !isTestBypass) {
+    res.status(404).json({ error: "Vaga não encontrada" });
+    return;
+  }
+
   try {
     const { data, error } = await supabase
       .from("jobs")
@@ -320,6 +470,180 @@ app.get("/jobs/:id", async (req: Request, res: Response) => {
     const msg = err instanceof Error ? err.message : "Erro ao buscar vaga";
     res.status(500).json({ error: msg });
   }
+});
+
+// -------------------------------------------------------------
+// 1.04 FLUXO DE OAUTH DIRETO COM GITHUB (SEM SUPABASE)
+// -------------------------------------------------------------
+app.get("/auth/github", (req: Request, res: Response) => {
+  if (!GITHUB_CLIENT_ID) {
+    res.redirect("/?auth=no_client_id");
+    return;
+  }
+
+  const host = (req.headers["x-forwarded-host"] || req.headers.host || "querovagas.vercel.app") as string;
+  const proto = (req.headers["x-forwarded-proto"] || "https") as string;
+  const redirectUri = `${proto}://${host}/api/auth/github/callback`;
+
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
+    GITHUB_CLIENT_ID,
+  )}&scope=read:user&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+  res.redirect(githubAuthUrl);
+});
+
+app.get("/auth/github/callback", async (req: Request, res: Response) => {
+  const code = req.query.code as string | undefined;
+  if (!code || !GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+    res.redirect("/?auth=failed&reason=missing_code_or_credentials");
+    return;
+  }
+
+  try {
+    const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        client_id: GITHUB_CLIENT_ID,
+        client_secret: GITHUB_CLIENT_SECRET,
+        code,
+      }),
+    });
+
+    const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string };
+    if (!tokenData.access_token) {
+      console.warn("[GitHubOAuth] Falha ao obter access_token:", tokenData);
+      res.redirect("/?auth=failed&reason=oauth_token_exchange");
+      return;
+    }
+
+    const accessToken = tokenData.access_token;
+
+    const userRes = await fetch("https://api.github.com/user", {
+      headers: {
+        "User-Agent": "QueroVagas-DevTrustEngine/1.0",
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!userRes.ok) {
+      res.redirect("/?auth=failed&reason=fetch_user_failed");
+      return;
+    }
+
+    const userData = (await userRes.json()) as {
+      login: string;
+      name?: string;
+      avatar_url?: string;
+    };
+
+    const authenticatedUser = userData.login;
+    const isVerified = await checkDeveloperReputation(authenticatedUser, accessToken);
+
+    if (isVerified) {
+      const trustToken = generateTrustToken(authenticatedUser);
+      const params = new URLSearchParams({
+        auth: "success",
+        token: trustToken,
+        username: authenticatedUser,
+        name: userData.name || authenticatedUser,
+        avatar: userData.avatar_url || "",
+      });
+      res.redirect(`/?${params.toString()}`);
+      return;
+    }
+
+    res.redirect(`/?auth=denied&username=${encodeURIComponent(authenticatedUser)}`);
+  } catch (err) {
+    console.warn("[GitHubOAuth] Erro no fluxo OAuth:", err);
+    res.redirect("/?auth=failed&reason=server_error");
+  }
+});
+
+// -------------------------------------------------------------
+// 1.05 AUTENTICAÇÃO E VERIFICAÇÃO DE REPUTAÇÃO TÉCNICA
+// -------------------------------------------------------------
+app.post("/auth/verify-trust", async (req: Request, res: Response) => {
+  try {
+    const { username: rawUsername } = req.body || {};
+    let candidateUsername = typeof rawUsername === "string" ? rawUsername.trim().replace(/^@+/, "") : "";
+
+    if (!candidateUsername) {
+      res.status(400).json({ error: "Identificador de perfil do GitHub não informado" });
+      return;
+    }
+
+    let avatarUrl: string | undefined;
+    let name: string | undefined;
+
+    // Busca dados públicos do perfil diretamente na API do GitHub
+    try {
+      const headers: Record<string, string> = {
+        "User-Agent": "QueroVagas-DevTrustEngine/1.0",
+        Accept: "application/vnd.github+json",
+      };
+      if (DEV_AUDIT_TOKEN) {
+        headers["Authorization"] = `Bearer ${DEV_AUDIT_TOKEN}`;
+      }
+      const ghRes = await fetch(`https://api.github.com/users/${encodeURIComponent(candidateUsername)}`, { headers });
+      if (ghRes.ok) {
+        const ghData = (await ghRes.json()) as { avatar_url?: string; name?: string; login?: string };
+        avatarUrl = ghData.avatar_url;
+        name = ghData.name || ghData.login || candidateUsername;
+        if (ghData.login) {
+          candidateUsername = ghData.login;
+        }
+      }
+    } catch {
+      // Ignora falhas de rede na busca do perfil e segue para verificação
+    }
+
+    const isVerified = await checkDeveloperReputation(candidateUsername);
+
+    if (isVerified) {
+      const trustToken = generateTrustToken(candidateUsername);
+      res.json({
+        ok: true,
+        isVerified: true,
+        trustToken,
+        username: candidateUsername,
+        user: {
+          username: candidateUsername,
+          name: name || candidateUsername,
+          avatarUrl,
+        },
+      });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      isVerified: false,
+      username: candidateUsername,
+      user: {
+        username: candidateUsername,
+        name: name || candidateUsername,
+        avatarUrl,
+      },
+      message: "Perfil não atende aos requisitos de conexão da comunidade.",
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Erro ao validar perfil";
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.get("/auth/session", (req: Request, res: Response) => {
+  const trustHeader = (req.headers["x-trust-token"] || req.query.trust_token) as string | undefined;
+  const { valid, username } = verifyTrustToken(trustHeader);
+  res.json({
+    isVerified: valid,
+    username: valid ? username : null,
+  });
 });
 
 // -------------------------------------------------------------

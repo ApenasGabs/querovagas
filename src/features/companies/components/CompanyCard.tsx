@@ -86,8 +86,8 @@ export function CompanyCard({
           </div>
         </div>
 
-        {/* Quantidade de vagas ou Votos da comunidade */}
-        {activeCount > 0 ? (
+        {/* Quantidade de vagas (apenas quando visualização de vagas está ativa) ou Votos da comunidade */}
+        {onViewJobs && activeCount > 0 ? (
           <div className="text-right shrink-0">
             <span className="text-xs font-bold text-primary flex items-center gap-1 justify-end">
               <Flame className="w-3.5 h-3.5 text-warning fill-warning" />
