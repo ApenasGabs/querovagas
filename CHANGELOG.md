@@ -5,6 +5,19 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.5.0](https://github.com/ApenasGabs/querovagas/compare/v1.4.1...v1.5.0) (2026-10-18)
+
+### ✨ Features
+
+* **community:** implement direct github oauth flow and sanitize api responses ([c7e057f](https://github.com/ApenasGabs/querovagas/commit/c7e057f2e405aa5d893f0394d17d877ae6f3cbd4))
+* **community:** refine company radar, suggestions flow and session integration ([216e8ee](https://github.com/ApenasGabs/querovagas/commit/216e8ee8ccdc5e747866997eadc3cb3be6179f23))
+
+### 🐛 Bug Fixes
+
+* **build:** remove unused openModal variable causing tsc -b error ([27b33d9](https://github.com/ApenasGabs/querovagas/commit/27b33d96ef9637a93a8d0884cc43ad6a779613f8))
+* **community:** add direct github profile verification modal for contributor access ([9056474](https://github.com/ApenasGabs/querovagas/commit/90564747d281d727a0d236ee3acad4d8e33a1de5))
+* **community:** address qa review findings with stealth api hardening and lint cleanups ([01e6c78](https://github.com/ApenasGabs/querovagas/commit/01e6c78fb08cac07432d8447075016bad5330a76))
+
 ## [1.4.1](https://github.com/ApenasGabs/querovagas/compare/v1.4.0...v1.4.1) (2026-10-14)
 
 ### 🐛 Bug Fixes
