@@ -11,6 +11,7 @@ import type {
 } from "../types/job";
 import type { IJobDataSource } from "./dataSource.interface";
 import { CITY_QUERY_MAP, UF_QUERY_MAP } from "./locationConstants";
+import { getStoredTrustToken } from "./trustAuthService";
 
 interface RawJobRow {
   id: string;
@@ -71,14 +72,31 @@ export class SupabaseJobDataSource implements IJobDataSource {
   public getJobs = async (params: JobFilterParams = {}): Promise<PaginatedJobs> => {
     if (this.isProxy) {
       try {
+        const trustToken = getStoredTrustToken();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (trustToken) {
+          headers["x-trust-token"] = trustToken;
+        }
+
         const res = await fetch(`${this.baseUrl}/jobs`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(params),
         });
 
         if (res.ok) {
-          return (await res.json()) as PaginatedJobs;
+          const data = (await res.json()) as PaginatedJobs;
+          return data;
+        }
+
+        if (res.status === 401 || res.status === 403) {
+          return {
+            jobs: [],
+            total: 0,
+            page: params.page || 1,
+            pageSize: params.pageSize || 12,
+            totalPages: 0,
+          };
         }
 
         console.warn(
@@ -90,6 +108,18 @@ export class SupabaseJobDataSource implements IJobDataSource {
           err,
         );
       }
+    }
+
+    // Se não há token de autorização, bloqueia fallback direto para manter a blindagem
+    const trustToken = getStoredTrustToken();
+    if (!trustToken) {
+      return {
+        jobs: [],
+        total: 0,
+        page: params.page || 1,
+        pageSize: params.pageSize || 12,
+        totalPages: 0,
+      };
     }
 
     const client = this.getFallbackClient();
@@ -216,13 +246,28 @@ export class SupabaseJobDataSource implements IJobDataSource {
   public getJobById = async (id: string): Promise<Job | null> => {
     if (this.isProxy) {
       try {
-        const res = await fetch(`${this.baseUrl}/jobs/${id}`);
+        const trustToken = getStoredTrustToken();
+        const headers: Record<string, string> = {};
+        if (trustToken) {
+          headers["x-trust-token"] = trustToken;
+        }
+
+        const res = await fetch(`${this.baseUrl}/jobs/${id}`, { headers });
         if (res.ok) {
           return (await res.json()) as Job;
+        }
+
+        if (res.status === 401 || res.status === 403) {
+          return null;
         }
       } catch (err) {
         console.warn("[SupabaseJobDataSource] Falha proxy getJobById. Usando fallback direto:", err);
       }
+    }
+
+    const trustToken = getStoredTrustToken();
+    if (!trustToken) {
+      return null;
     }
 
     const client = this.getFallbackClient();

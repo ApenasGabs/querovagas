@@ -29,12 +29,12 @@ export interface UseJobsReturn {
   refresh: () => Promise<void>;
 }
 
-export function useJobs(pageSize = 12): UseJobsReturn {
+export function useJobs(pageSize = 12, enabled = true): UseJobsReturn {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [stats, setStats] = useState<JobStats | null>(null);
@@ -99,6 +99,11 @@ export function useJobs(pageSize = 12): UseJobsReturn {
   }, []);
 
   const fetchJobs = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -138,6 +143,7 @@ export function useJobs(pageSize = 12): UseJobsReturn {
       setLoading(false);
     }
   }, [
+    enabled,
     debouncedSearch,
     seniority,
     workModel,
@@ -149,9 +155,20 @@ export function useJobs(pageSize = 12): UseJobsReturn {
     popularStacks.length,
   ]);
 
+  // Sincroniza estado de loading se enabled for desativado sem cascading renders
+  const [prevEnabled, setPrevEnabled] = useState(enabled);
+  if (enabled !== prevEnabled) {
+    setPrevEnabled(enabled);
+    if (!enabled) {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    fetchJobs();
-  }, [fetchJobs]);
+    if (enabled) {
+      void fetchJobs();
+    }
+  }, [enabled, fetchJobs]);
 
   return {
     jobs,
