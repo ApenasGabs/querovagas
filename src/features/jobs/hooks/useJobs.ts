@@ -155,11 +155,18 @@ export function useJobs(pageSize = 12, enabled = true): UseJobsReturn {
     popularStacks.length,
   ]);
 
+  // Sincroniza estado de loading se enabled for desativado sem cascading renders
+  const [prevEnabled, setPrevEnabled] = useState(enabled);
+  if (enabled !== prevEnabled) {
+    setPrevEnabled(enabled);
+    if (!enabled) {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (enabled) {
-      fetchJobs();
-    } else {
-      setLoading(false);
+      void fetchJobs();
     }
   }, [enabled, fetchJobs]);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, type FormEvent } from "react";
+import React, { useState, type FormEvent } from "react";
 
 interface GithubAuthModalProps {
   isOpen: boolean;
@@ -21,13 +21,16 @@ export function GithubAuthModal({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialMessage || null);
 
-  useEffect(() => {
+  // Sincroniza estado de abertura sem cascading renders
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setUsername(initialUsername);
       setErrorMessage(initialMessage || null);
       setLoading(false);
     }
-  }, [isOpen, initialUsername, initialMessage]);
+  }
 
   if (!isOpen) return null;
 

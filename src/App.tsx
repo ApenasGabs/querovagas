@@ -32,6 +32,7 @@ export default function App(): ReactElement {
     isVerified,
     message: authMessage,
     isModalOpen,
+    openModal,
     closeModal,
     signIn: handleSignIn,
     loginWithGithubOAuth,
@@ -130,7 +131,7 @@ export default function App(): ReactElement {
           <NavbarAuth
             status={authStatus}
             user={authUser}
-            onSignIn={loginWithGithubOAuth}
+            onSignIn={openModal}
             onSignOut={handleSignOut}
           />
 

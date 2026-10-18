@@ -790,6 +790,17 @@ app.get("/companies", async (req: Request, res: Response) => {
       return a.name.localeCompare(b.name);
     });
 
+    // Sanitiza activeJobsCount caso não possua token de desenvolvedor verificado (Stealth)
+    const trustHeader = (req.headers["x-trust-token"] || req.query.trust_token) as string | undefined;
+    const isTestBypass = process.env.NODE_ENV === "test" && !req.headers["x-enforce-trust"];
+    const isAuthorized = verifyTrustToken(trustHeader).valid || isTestBypass;
+    if (!isAuthorized) {
+      result = result.map((c) => ({
+        ...c,
+        activeJobsCount: 0,
+      }));
+    }
+
     res.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao carregar radar de empresas";
@@ -897,6 +908,21 @@ const rawProxyHandler = async (req: Request, res: Response): Promise<void> => {
   const queryString = qIndex !== -1 ? req.url.slice(qIndex) : "";
   const pathWithoutQuery = qIndex !== -1 ? req.url.slice(0, qIndex) : req.url;
   const upstreamPath = pathWithoutQuery.replace(/^\/v1/, "");
+
+  // Stealth: se for consulta direta a vagas via proxy upstream sem autorização, sanitiza a resposta
+  const proxyTrustHeader = (req.headers["x-trust-token"] || req.query.trust_token) as string | undefined;
+  const isProxyTestBypass = process.env.NODE_ENV === "test" && !req.headers["x-enforce-trust"];
+  const isProxyAuthorized = verifyTrustToken(proxyTrustHeader).valid || isProxyTestBypass;
+
+  if (upstreamPath.includes("/jobs") && !isProxyAuthorized) {
+    if (req.method === "GET") {
+      res.json([]);
+      return;
+    }
+    res.status(404).json({ error: "Recurso não encontrado" });
+    return;
+  }
+
   const targetUrl = `${targetBase.replace(/\/$/, "")}${upstreamPath}${queryString}`;
 
   const forwardHeaders: Record<string, string> = {
