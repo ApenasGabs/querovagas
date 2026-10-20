@@ -145,7 +145,7 @@ describe("Express Reverse Proxy & Parser API", () => {
       expect(typeof data.trustToken).toBe("string");
     });
 
-    it("should verify mutual follow user (e.g. leozizz) on POST /api/auth/verify-trust", async () => {
+    it("should verify mutual follow user on POST /api/auth/verify-trust", async () => {
       const res = await fetch(`${baseUrl}/api/auth/verify-trust`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
