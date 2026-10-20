@@ -37,3 +37,5 @@ AGENTS.md
 .env
 .env.*
 !.env.example
+.vercel
+GEMINI.md
