@@ -143,22 +143,22 @@ export default function App(): ReactElement {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-8 space-y-6 md:space-y-8">
         {!isVerified ? (
           <div className="space-y-6">
-            {/* Cabeçalho da Visão Pública / Cadastro de Empresas */}
+            {/* Cabeçalho da Visão Pública / Busca e Monitoramento de Empresas */}
             <div className="text-center space-y-2 max-w-2xl mx-auto pt-1">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Cadastro e Monitoramento de Empresas de Tecnologia</span>
+                <span>Busca e Monitoramento de Empresas de Tecnologia</span>
               </div>
               <p className="text-xs sm:text-sm text-base-content/70">
-                Consulte empresas cadastradas pela comunidade ou indique novas páginas de carreiras para monitoramento contínuo!
+                Pesquise empresas já monitoradas pelo QueroVagas ou indique novas páginas de carreiras para acompanhamento!
               </p>
             </div>
 
-            {/* Painel Central de Empresas e Formulário de Sugestão */}
+            {/* Painel Central de Empresas e Busca em Primeiro Plano */}
             <CompanyRadarModal
               isOpen={true}
               inline={true}
-              defaultTab="suggest"
+              defaultTab="search"
               defaultSuggestedBy={authUser?.username}
               onClose={() => {}}
             />

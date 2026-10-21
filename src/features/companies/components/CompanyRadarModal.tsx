@@ -41,7 +41,7 @@ export function CompanyRadarModal({
   defaultSuggestedBy = "",
 }: CompanyRadarModalProps): ReactElement | null {
   const [activeTab, setActiveTab] = useState<TabType>(
-    defaultTab ?? (inline ? "suggest" : "search"),
+    defaultTab ?? "search",
   );
   const [searchTerm, setSearchTerm] = useState(initialSearchQuery);
   const [selectedATS, setSelectedATS] = useState<string>("ALL");

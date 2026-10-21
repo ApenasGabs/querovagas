@@ -566,10 +566,10 @@ export const initialMonitoredCompanies: Company[] = [
     "id": "comp-agibank",
     "name": "Agibank",
     "slug": "agibank",
-    "ats": "GUPY",
-    "careerUrl": "https://agibank.gupy.io",
+    "ats": "GREENHOUSE",
+    "careerUrl": "https://boards.greenhouse.io/agibank",
     "status": "MONITORED",
-    "activeJobsCount": 0,
+    "activeJobsCount": 94,
     "hasTechJobs": true
   },
   {
