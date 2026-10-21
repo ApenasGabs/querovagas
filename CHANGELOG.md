@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.6.0](https://github.com/ApenasGabs/querovagas/compare/v1.5.1...v1.6.0) (2026-10-21)
+
+### ✨ Features
+
+* **companies:** priorizar busca no Radar de Empresas e migrar Agibank ([#10](https://github.com/ApenasGabs/querovagas/issues/10)) ([064bab6](https://github.com/ApenasGabs/querovagas/commit/064bab607ed6bee81dda902b773bb7cb20041eaf))
+
 ## [1.5.1](https://github.com/ApenasGabs/querovagas/compare/v1.5.0...v1.5.1) (2026-10-21)
 
 ### 🐛 Bug Fixes
