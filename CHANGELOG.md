@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.5.1](https://github.com/ApenasGabs/querovagas/compare/v1.5.0...v1.5.1) (2026-10-21)
+
+### 🐛 Bug Fixes
+
+* **auth:** atualizar placeholder e corrigir bundle serverless na vercel (Refs [#7](https://github.com/ApenasGabs/querovagas/issues/7)) ([384219a](https://github.com/ApenasGabs/querovagas/commit/384219abc48ddeb2bc3ad848a17313c58a67eb6e))
+
 ## [1.5.0](https://github.com/ApenasGabs/querovagas/compare/v1.4.1...v1.5.0) (2026-10-18)
 
 ### ✨ Features
