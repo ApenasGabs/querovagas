@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import initialCatalog from "../src/data/monitoredCompanies.ts";
+import initialCatalog from "./_data/monitoredCompanies.ts";
 import { createClient } from "@supabase/supabase-js";
 import express, { type NextFunction, type Request, type Response } from "express";
 
@@ -481,7 +481,7 @@ app.get("/auth/github", (req: Request, res: Response) => {
     return;
   }
 
-  const host = (req.headers["x-forwarded-host"] || req.headers.host || "querovagas.vercel.app") as string;
+  const host = (req.headers["x-forwarded-host"] || req.headers.host || "querovagas.apenasgabs.dev") as string;
   const proto = (req.headers["x-forwarded-proto"] || "https") as string;
   const redirectUri = `${proto}://${host}/api/auth/github/callback`;
 

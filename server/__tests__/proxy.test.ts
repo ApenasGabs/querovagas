@@ -145,11 +145,11 @@ describe("Express Reverse Proxy & Parser API", () => {
       expect(typeof data.trustToken).toBe("string");
     });
 
-    it("should verify mutual follow user (e.g. leozizz) on POST /api/auth/verify-trust", async () => {
+    it("should reject untrusted user on POST /api/auth/verify-trust", async () => {
       const res = await fetch(`${baseUrl}/api/auth/verify-trust`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: "leozizz" }),
+        body: JSON.stringify({ username: "untrusted-dev-9999" }),
       });
       expect(res.status).toBe(200);
       const data = (await res.json()) as {
@@ -159,9 +159,9 @@ describe("Express Reverse Proxy & Parser API", () => {
         username?: string;
       };
       expect(data.ok).toBe(true);
-      expect(data.isVerified).toBe(true);
-      expect(data.trustToken).toBeTruthy();
-      expect(data.username).toBe("leozizz");
+      expect(data.isVerified).toBe(false);
+      expect(data.trustToken).toBeUndefined();
+      expect(data.username).toBe("untrusted-dev-9999");
     });
 
     it("should handle GET /api/auth/github redirect", async () => {
