@@ -116,4 +116,23 @@ describe("CompanyRadarModal", () => {
 
     expect(screen.getByText(/Sugerir Nova Empresa para o Crawler/i)).toBeInTheDocument();
   });
+
+  it("deve priorizar a aba de busca por padrão mesmo quando inline é true", () => {
+    render(<CompanyRadarModal isOpen={true} inline={true} onClose={vi.fn()} />);
+
+    // Campo de busca deve estar visível e ativo por padrão
+    expect(
+      screen.getByPlaceholderText(/Digite o nome de uma empresa/i),
+    ).toBeInTheDocument();
+  });
+
+  it("deve conter Agibank cadastrado com ATS Greenhouse no catálogo monitorado", async () => {
+    const { initialMonitoredCompanies } = await import("../../../data/monitoredCompanies");
+    const agibank = initialMonitoredCompanies.find((c) => c.slug === "agibank");
+
+    expect(agibank).toBeDefined();
+    expect(agibank?.ats).toBe("GREENHOUSE");
+    expect(agibank?.careerUrl).toContain("greenhouse.io");
+    expect(agibank?.status).toBe("MONITORED");
+  });
 });
