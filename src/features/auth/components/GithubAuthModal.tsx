@@ -121,7 +121,7 @@ export function GithubAuthModal({
                 autoFocus
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="ex: leozizz"
+                placeholder="seu-usuario"
                 disabled={loading}
                 className="input input-bordered w-full pl-8 font-mono text-sm focus:input-primary"
               />

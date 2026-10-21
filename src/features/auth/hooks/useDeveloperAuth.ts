@@ -73,13 +73,26 @@ function getInitialAuthState(): InitialAuthState {
         isModalOpen: false,
         needsSessionValidation: false,
       };
+    } else if (authParam === "failed") {
+      const reason = urlParams.get("reason");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return {
+        status: "unauthenticated",
+        user: null,
+        trustToken: null,
+        message: reason
+          ? `Falha na autenticação via GitHub (${reason}). Tente novamente ou use a identificação direta abaixo.`
+          : "Falha na autenticação via GitHub. Tente novamente ou use a identificação direta abaixo.",
+        isModalOpen: true,
+        needsSessionValidation: false,
+      };
     } else if (authParam === "no_client_id") {
       window.history.replaceState({}, document.title, window.location.pathname);
       return {
         status: "unauthenticated",
         user: null,
         trustToken: null,
-        message: undefined,
+        message: "O login via GitHub requer as credenciais GITHUB_CLIENT_ID configuradas no ambiente. Utilize a identificação direta pelo seu usuário abaixo.",
         isModalOpen: true,
         needsSessionValidation: false,
       };
