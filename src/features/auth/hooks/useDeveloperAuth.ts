@@ -19,6 +19,7 @@ export interface UseDeveloperAuthReturn {
   isVerified: boolean;
   isLoading: boolean;
   returnedFromUtterances: boolean;
+  loginWithUtterances: () => void;
   signOut: () => void;
   syncUtterancesSession: () => Promise<void>;
 }
@@ -183,6 +184,13 @@ export function useDeveloperAuth(): UseDeveloperAuthReturn {
     }
   }, []);
 
+  const loginWithUtterances = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const redirectUri = encodeURIComponent(window.location.href);
+      window.location.href = `https://api.utteranc.es/authorize?redirect_uri=${redirectUri}`;
+    }
+  }, []);
+
   const handleSignOut = useCallback(() => {
     signOutService();
     setUser(null);
@@ -197,6 +205,7 @@ export function useDeveloperAuth(): UseDeveloperAuthReturn {
     isVerified: status === "verified",
     isLoading: status === "loading",
     returnedFromUtterances: initialState.returnedFromUtterances,
+    loginWithUtterances,
     signOut: handleSignOut,
     syncUtterancesSession,
   };

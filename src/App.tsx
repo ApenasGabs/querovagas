@@ -30,6 +30,7 @@ export default function App(): ReactElement {
     user: authUser,
     isVerified,
     returnedFromUtterances,
+    loginWithUtterances,
     signOut: handleSignOut,
   } = useDeveloperAuth();
 
@@ -125,6 +126,7 @@ export default function App(): ReactElement {
           <NavbarAuth
             status={authStatus}
             user={authUser}
+            onSignIn={loginWithUtterances}
             onSignOut={handleSignOut}
           />
 
