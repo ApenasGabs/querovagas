@@ -50,7 +50,19 @@ function getInitialAuthState(): InitialAuthState {
     };
   }
 
-  // 2. Se já possui trustToken local salvo, valida a sessão existente
+  // 2. Se existe utterances-session no localStorage mas ainda não temos o perfil do usuário resolvido
+  if (utterancesSession && !localUser) {
+    return {
+      status: "loading",
+      user: null,
+      trustToken: localToken,
+      utterancesSessionToResolve: utterancesSession,
+      needsSessionValidation: Boolean(localToken),
+      returnedFromUtterances: false,
+    };
+  }
+
+  // 3. Se já possui trustToken local salvo, valida a sessão existente e hidrata o perfil
   if (localToken) {
     return {
       status: "loading",
@@ -58,18 +70,6 @@ function getInitialAuthState(): InitialAuthState {
       trustToken: localToken,
       utterancesSessionToResolve: null,
       needsSessionValidation: true,
-      returnedFromUtterances: false,
-    };
-  }
-
-  // 3. Se existe utterances-session no localStorage mas ainda não temos o perfil do usuário resolvido
-  if (utterancesSession && !localUser) {
-    return {
-      status: "loading",
-      user: null,
-      trustToken: null,
-      utterancesSessionToResolve: utterancesSession,
-      needsSessionValidation: false,
       returnedFromUtterances: false,
     };
   }
@@ -106,22 +106,24 @@ export function useDeveloperAuth(): UseDeveloperAuthReturn {
         if (res.isVerified && res.trustToken) {
           setTrustToken(res.trustToken);
           setStatus("verified");
-        } else {
+        } else if (!initialState.needsSessionValidation) {
           setTrustToken(null);
           setStatus("unauthenticated");
         }
       })
       .catch(() => {
         if (!isMounted) return;
-        setStatus("unauthenticated");
+        if (!initialState.needsSessionValidation) {
+          setStatus("unauthenticated");
+        }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [initialState.utterancesSessionToResolve]);
+  }, [initialState.utterancesSessionToResolve, initialState.needsSessionValidation]);
 
-  // Valida trustToken existente caso já estivesse autenticado antes
+  // Valida trustToken existente caso já estivesse autenticado antes e garante hidratação do user
   useEffect(() => {
     if (!initialState.needsSessionValidation || !initialState.trustToken) return;
 
@@ -139,6 +141,19 @@ export function useDeveloperAuth(): UseDeveloperAuthReturn {
             if (sessionData.isVerified) {
               setTrustToken(token);
               setStatus("verified");
+              const resolvedProfile: UserProfile | null =
+                sessionData.user ||
+                (sessionData.username
+                  ? {
+                      username: sessionData.username,
+                      name: sessionData.username,
+                      avatarUrl: `https://github.com/${sessionData.username}.png`,
+                    }
+                  : null);
+              if (resolvedProfile) {
+                setStoredUserProfile(resolvedProfile);
+                setUser(resolvedProfile);
+              }
             } else {
               setStoredTrustToken(null);
               setStoredUserProfile(null);
@@ -183,6 +198,26 @@ export function useDeveloperAuth(): UseDeveloperAuthReturn {
       setStatus("unauthenticated");
     }
   }, []);
+
+  // Sincroniza automaticamente caso utterances-session seja gravada pelo script do Utterances
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleStorageOrFocus = () => {
+      const currentSession = getStoredUtterancesSession();
+      const currentProfile = getStoredUserProfile();
+      if (currentSession && !currentProfile) {
+        void syncUtterancesSession();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageOrFocus);
+    window.addEventListener("focus", handleStorageOrFocus);
+    return () => {
+      window.removeEventListener("storage", handleStorageOrFocus);
+      window.removeEventListener("focus", handleStorageOrFocus);
+    };
+  }, [syncUtterancesSession]);
 
   const loginWithUtterances = useCallback(() => {
     if (typeof window !== "undefined") {

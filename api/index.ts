@@ -596,12 +596,57 @@ app.post("/auth/verify-trust", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/auth/session", (req: Request, res: Response) => {
+app.get("/auth/session", async (req: Request, res: Response) => {
   const trustHeader = (req.headers["x-trust-token"] || req.query.trust_token) as string | undefined;
   const { valid, username } = verifyTrustToken(trustHeader);
+
+  if (!valid || !username) {
+    res.json({
+      isVerified: false,
+      username: null,
+      user: null,
+    });
+    return;
+  }
+
+  let resolvedUsername = username;
+  let name = username;
+  let avatarUrl: string | undefined;
+
+  try {
+    const headers: Record<string, string> = {
+      "User-Agent": "QueroVagas-DevTrustEngine/1.0",
+      Accept: "application/vnd.github+json",
+    };
+    if (DEV_AUDIT_TOKEN && !DEV_AUDIT_TOKEN.startsWith("vercel_")) {
+      headers["Authorization"] = `Bearer ${DEV_AUDIT_TOKEN}`;
+    }
+    const ghRes = await fetch(
+      `https://api.github.com/users/${encodeURIComponent(username)}`,
+      { headers },
+    );
+    if (ghRes.ok) {
+      const ghData = (await ghRes.json()) as {
+        login?: string;
+        name?: string;
+        avatar_url?: string;
+      };
+      resolvedUsername = ghData.login || username;
+      name = ghData.name || resolvedUsername;
+      avatarUrl = ghData.avatar_url;
+    }
+  } catch {
+    // Fallback para username extraído do token assinado
+  }
+
   res.json({
-    isVerified: valid,
-    username: valid ? username : null,
+    isVerified: true,
+    username: resolvedUsername,
+    user: {
+      username: resolvedUsername,
+      name,
+      avatarUrl,
+    },
   });
 });
 
