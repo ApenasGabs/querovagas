@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.7.1](https://github.com/ApenasGabs/querovagas/compare/v1.7.0...v1.7.1) (2026-10-22)
+
+### 🐛 Bug Fixes
+
+* **api:** remover import .ts relativo em api/index.ts e corrigir tipagem BodyInit na Vercel (Refs [#14](https://github.com/ApenasGabs/querovagas/issues/14)) ([d010dc0](https://github.com/ApenasGabs/querovagas/commit/d010dc08182d70dade01df5cae8fdf31dda07aa0))
+
 ## [1.7.0](https://github.com/ApenasGabs/querovagas/compare/v1.6.0...v1.7.0) (2026-10-22)
 
 ### ✨ Features
