@@ -78,6 +78,48 @@ export class CompanyService {
       return this.enrichWithLocalVotes(apiCompanies);
     }
 
+    // Consulta direta ao Supabase se a rota /api/companies não estiver acessível
+    try {
+      const supabaseUrl = typeof import.meta !== "undefined" ? import.meta.env?.VITE_SUPABASE_URL : undefined;
+      const supabaseKey = typeof import.meta !== "undefined" ? import.meta.env?.VITE_SUPABASE_ANON_KEY : undefined;
+
+      if (supabaseUrl && supabaseKey) {
+        const { createClient } = await import("@supabase/supabase-js");
+        const client = createClient(supabaseUrl, supabaseKey);
+        let query = client
+          .from("companies")
+          .select("id, name, slug, ats, career_url, status, active_jobs_count, has_tech_jobs")
+          .order("name", { ascending: true });
+
+        if (params.search) {
+          query = query.ilike("name", `%${params.search}%`);
+        }
+        if (params.ats && params.ats !== "ALL") {
+          query = query.eq("ats", params.ats.toUpperCase());
+        }
+        if (params.status && params.status !== "ALL") {
+          query = query.eq("status", params.status);
+        }
+
+        const { data, error } = await query;
+        if (!error && Array.isArray(data) && data.length > 0) {
+          const mapped: Company[] = data.map((r: any) => ({
+            id: r.id,
+            name: r.name,
+            slug: r.slug,
+            ats: r.ats,
+            careerUrl: r.career_url,
+            status: (r.status as "MONITORED" | "SUGGESTED") || "MONITORED",
+            activeJobsCount: r.active_jobs_count || 0,
+            hasTechJobs: r.has_tech_jobs ?? true,
+          }));
+          return this.enrichWithLocalVotes(mapped);
+        }
+      }
+    } catch {
+      // Continua com fallback para catálogo local
+    }
+
     return this.getLocalFilteredCompanies(params);
   }
 

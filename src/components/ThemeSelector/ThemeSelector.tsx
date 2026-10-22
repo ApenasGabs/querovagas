@@ -1,3 +1,4 @@
+import { Palette } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -97,7 +98,7 @@ const ThemeSelector = () => {
         <div className="drawer-content">
           <label
             htmlFor="theme-drawer"
-            className="btn btn-sm btn-ghost text-xl"
+            className="btn btn-sm btn-ghost gap-1.5 px-2 sm:px-3 text-xs sm:text-sm font-semibold cursor-pointer"
             role="button"
             aria-label="Temas"
             data-testid="theme-button"
@@ -109,7 +110,9 @@ const ThemeSelector = () => {
               }
             }}
           >
-            Temas
+            <Palette className="w-4 h-4 shrink-0 text-base-content/80" />
+            <span className="hidden sm:inline">Temas</span>
+            <span className="sr-only sm:hidden">Temas</span>
           </label>
         </div>
         <div className="drawer-side z-1">

@@ -1,4 +1,42 @@
 -- ==============================================================================
+-- Schema: Tabela Central de Empresas Monitoradas (Companies) - Radar & Crawler
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS public.companies (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  ats TEXT NOT NULL DEFAULT 'OUTRO',
+  career_url TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'MONITORED',
+  active_jobs_count INTEGER DEFAULT 0,
+  has_tech_jobs BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_companies_slug ON public.companies (slug);
+CREATE INDEX IF NOT EXISTS idx_companies_ats ON public.companies (ats);
+CREATE INDEX IF NOT EXISTS idx_companies_status ON public.companies (status);
+
+ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permitir leitura publica de companies" ON public.companies;
+CREATE POLICY "Permitir leitura publica de companies"
+  ON public.companies
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Permitir gestao pelo service_role" ON public.companies;
+CREATE POLICY "Permitir gestao pelo service_role"
+  ON public.companies
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- ==============================================================================
 -- Schema: Tabela Central de Vagas (Jobs) - QueroVagas & JobsFinder
 -- ==============================================================================
 
@@ -82,4 +120,36 @@ CREATE POLICY "Permitir insercao publica de sugestoes"
   FOR INSERT
   TO anon, authenticated
   WITH CHECK (true);
+
+-- ==============================================================================
+-- Function: Agregação Estatística de Vagas em Tempo Real (get_job_stats)
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.get_job_stats()
+RETURNS json
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+AS $$
+  SELECT json_build_object(
+    'totalJobs', COUNT(*)::int,
+    'byModel', COALESCE(
+      (SELECT json_object_agg(work_model, count)
+       FROM (SELECT COALESCE(work_model, 'NAO_INFORMADO') as work_model, COUNT(*)::int as count 
+             FROM public.jobs WHERE is_tech = true GROUP BY work_model) m), '{}'::json),
+    'bySeniority', COALESCE(
+      (SELECT json_object_agg(seniority_level, count)
+       FROM (SELECT COALESCE(seniority_level, 'NAO_INFORMADO') as seniority_level, COUNT(*)::int as count 
+             FROM public.jobs WHERE is_tech = true GROUP BY seniority_level) s), '{}'::json),
+    'bySource', COALESCE(
+      (SELECT json_object_agg(source, count)
+       FROM (SELECT COALESCE(source, 'OUTRO') as source, COUNT(*)::int as count 
+             FROM public.jobs WHERE is_tech = true GROUP BY source) src), '{}'::json)
+  )
+  FROM public.jobs
+  WHERE is_tech = true;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_job_stats() TO anon, authenticated, service_role;
+
 

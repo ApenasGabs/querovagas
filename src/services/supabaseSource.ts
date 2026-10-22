@@ -313,6 +313,20 @@ export class SupabaseJobDataSource implements IJobDataSource {
 
     const client = this.getFallbackClient();
 
+    try {
+      const { data: rpcData, error: rpcErr } = await client.rpc("get_job_stats");
+      if (
+        !rpcErr &&
+        rpcData &&
+        typeof rpcData === "object" &&
+        typeof (rpcData as Record<string, unknown>).totalJobs === "number"
+      ) {
+        return rpcData as JobStats;
+      }
+    } catch {
+      // Ignora erro e continua para o fallback
+    }
+
     const { data, error } = await client
       .from(this.tableName)
       .select("work_model, seniority_level, source")

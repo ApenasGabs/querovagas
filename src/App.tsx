@@ -80,20 +80,20 @@ export default function App(): ReactElement {
       <Navbar
         title={
           <div
-            className="flex items-center gap-2.5 cursor-pointer select-none"
+            className="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none min-w-0"
             onClick={clearFilters}
             title="QueroVagas - Ir para o início"
           >
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-primary-content shadow-xs">
-              <Briefcase className="w-5 h-5" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary flex items-center justify-center text-primary-content shadow-xs shrink-0">
+              <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <span className="text-xl font-black tracking-tight text-base-content">
+            <span className="text-base sm:text-xl font-black tracking-tight text-base-content truncate">
               Quero<span className="text-primary">Vagas</span>
             </span>
           </div>
         }
       >
-        <div className="flex items-center gap-2 md:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Botão de Radar de Empresas & Comunidade (visível quando logado com acesso às vagas) */}
           {isVerified && (
             <button
@@ -101,11 +101,11 @@ export default function App(): ReactElement {
                 setRadarInitialQuery(search.trim());
                 setIsCompanyRadarOpen(true);
               }}
-              className="btn btn-sm btn-outline btn-primary gap-1.5 shadow-xs"
+              className="btn btn-sm btn-outline btn-primary px-2 sm:px-3 gap-1 sm:gap-1.5 shadow-xs shrink-0"
               title="Pesquisar se uma empresa é monitorada ou indicar nova empresa"
             >
-              <Radar className="w-4 h-4" />
-              <span className="text-xs font-semibold hidden sm:inline">Radar de Empresas</span>
+              <Radar className="w-4 h-4 shrink-0" />
+              <span className="text-xs font-semibold hidden md:inline">Radar de Empresas</span>
             </button>
           )}
 
@@ -114,7 +114,7 @@ export default function App(): ReactElement {
               href={whatsappChannelUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn-sm btn-ghost gap-1.5 text-success hover:bg-success/10 hidden md:inline-flex"
+              className="btn btn-sm btn-ghost gap-1.5 text-success hover:bg-success/10 hidden lg:inline-flex shrink-0"
               title="Receba alertas de novas vagas em nosso canal de transmissão oficial"
             >
               <MessageSquare className="w-4 h-4" />
