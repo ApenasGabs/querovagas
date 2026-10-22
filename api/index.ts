@@ -3611,10 +3611,64 @@ const readCatalog = (): CompanyRecord[] => {
 app.get("/companies", async (req: Request, res: Response) => {
   try {
     const { search = "", ats = "ALL", status = "ALL" } = req.query;
-    const catalog = readCatalog();
-    const suggestions = readSuggestions();
 
-    // 1. Busca contagem de vagas ativas no Supabase para atualizar a quantidade por empresa
+    // 1. Busca empresas cadastradas diretamente na tabela public.companies no Supabase
+    let dbCompanies: CompanyRecord[] = [];
+    try {
+      const { data: compRows, error: compErr } = await supabase
+        .from("companies")
+        .select("id, name, slug, ats, career_url, status, active_jobs_count, has_tech_jobs")
+        .order("name", { ascending: true });
+
+      if (!compErr && Array.isArray(compRows) && compRows.length > 0) {
+        dbCompanies = compRows.map((row: any) => ({
+          id: row.id || `comp-${String(row.ats || "outro").toLowerCase()}-${row.slug}`,
+          name: row.name,
+          slug: row.slug,
+          ats: row.ats,
+          careerUrl: row.career_url,
+          status: (row.status as "MONITORED" | "SUGGESTED") || "MONITORED",
+          activeJobsCount: row.active_jobs_count || 0,
+          hasTechJobs: row.has_tech_jobs ?? true,
+        }));
+      }
+    } catch (e) {
+      console.warn("[API] Falha ao consultar tabela companies no Supabase:", e);
+    }
+
+    // Fallback gracioso para catálogo embutido se a tabela estiver inacessível
+    const catalog = dbCompanies.length > 0 ? dbCompanies : readCatalog();
+
+    // 2. Busca sugestões comunitárias cadastradas no Supabase
+    let communityList: CompanyRecord[] = [];
+    try {
+      const { data: sugRows, error: sugErr } = await supabase
+        .from("company_suggestions")
+        .select("*")
+        .order("votes_count", { ascending: false });
+
+      if (!sugErr && Array.isArray(sugRows) && sugRows.length > 0) {
+        communityList = sugRows.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          slug: s.slug,
+          ats: s.ats,
+          careerUrl: s.career_url,
+          status: "SUGGESTED" as const,
+          activeJobsCount: 0,
+          suggestedBy: s.suggested_by || "Comunidade",
+          votesCount: s.votes_count || 1,
+          notes: s.notes,
+          createdAt: s.created_at,
+        }));
+      }
+    } catch {
+      // Ignora erro e continua com fallback local
+    }
+
+    const suggestions = communityList.length > 0 ? communityList : readSuggestions();
+
+    // 3. Busca contagem de vagas ativas no Supabase para atualizar a quantidade por empresa
     const companyJobCounts: Record<string, { count: number; source: string; sampleUrl: string }> = {};
     try {
       const { data } = await supabase.from("jobs").select("company, source, url").limit(2000);
@@ -3635,18 +3689,18 @@ app.get("/companies", async (req: Request, res: Response) => {
 
     const companyMap = new Map<string, CompanyRecord>();
 
-    // 2. Adiciona catálogo base pré-cadastrado
+    // 4. Adiciona catálogo base (do Supabase ou fallback)
     for (const c of catalog) {
       const normKey = c.name.toLowerCase();
       const jobInfo = companyJobCounts[normKey];
       companyMap.set(c.slug, {
         ...c,
-        activeJobsCount: jobInfo ? jobInfo.count : 0,
+        activeJobsCount: jobInfo ? jobInfo.count : (c.activeJobsCount || 0),
         status: "MONITORED",
       });
     }
 
-    // 3. Adiciona empresas encontradas no Supabase que porventura não estavam no catálogo estático
+    // 5. Adiciona empresas encontradas no Supabase que porventura não estavam no catálogo estático
     for (const [normKey, info] of Object.entries(companyJobCounts)) {
       const matching = Array.from(companyMap.values()).find(
         (c) => c.name.toLowerCase() === normKey,
@@ -3679,7 +3733,7 @@ app.get("/companies", async (req: Request, res: Response) => {
       }
     }
 
-    // 4. Adiciona sugestões da comunidade
+    // 6. Adiciona sugestões da comunidade
     for (const sug of suggestions) {
       companyMap.set(sug.id, sug);
     }
@@ -3736,7 +3790,7 @@ app.get("/companies", async (req: Request, res: Response) => {
 });
 
 // POST /company-suggestions - Cria nova sugestão comunitária
-app.post("/company-suggestions", (req: Request, res: Response) => {
+app.post("/company-suggestions", async (req: Request, res: Response) => {
   try {
     const { name, careerUrl, ats = "OUTRO", notes, suggestedBy } = req.body || {};
     const trimmedName = String(name || "").trim();
@@ -3785,6 +3839,24 @@ app.post("/company-suggestions", (req: Request, res: Response) => {
     suggestions.unshift(newSuggestion);
     writeSuggestions(suggestions);
 
+    // Persiste também no Supabase de forma resiliente
+    try {
+      await supabase.from("company_suggestions").insert({
+        id: newSuggestion.id,
+        name: newSuggestion.name,
+        slug: newSuggestion.slug,
+        ats: newSuggestion.ats,
+        career_url: newSuggestion.careerUrl,
+        status: newSuggestion.status,
+        votes_count: newSuggestion.votesCount || 1,
+        suggested_by: newSuggestion.suggestedBy,
+        notes: newSuggestion.notes || null,
+        created_at: newSuggestion.createdAt,
+      });
+    } catch {
+      // Ignora erro em caso de offline
+    }
+
     res.status(201).json(newSuggestion);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao registrar sugestão";
@@ -3805,7 +3877,7 @@ app.get("/company-suggestions", (_req: Request, res: Response) => {
 });
 
 // POST /company-suggestions/:id/upvote - Apoiar sugestão com voto comunitário
-app.post("/company-suggestions/:id/upvote", (req: Request, res: Response) => {
+app.post("/company-suggestions/:id/upvote", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const suggestions = readSuggestions();
@@ -3818,6 +3890,16 @@ app.post("/company-suggestions/:id/upvote", (req: Request, res: Response) => {
 
     target.votesCount = (target.votesCount || 1) + 1;
     writeSuggestions(suggestions);
+
+    // Sincroniza upvote no Supabase
+    try {
+      await supabase
+        .from("company_suggestions")
+        .update({ votes_count: target.votesCount })
+        .eq("id", id);
+    } catch {
+      // Ignora erro
+    }
 
     res.json({ id: target.id, votesCount: target.votesCount });
   } catch (err: unknown) {

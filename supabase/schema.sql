@@ -1,4 +1,42 @@
 -- ==============================================================================
+-- Schema: Tabela Central de Empresas Monitoradas (Companies) - Radar & Crawler
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS public.companies (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  ats TEXT NOT NULL DEFAULT 'OUTRO',
+  career_url TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'MONITORED',
+  active_jobs_count INTEGER DEFAULT 0,
+  has_tech_jobs BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_companies_slug ON public.companies (slug);
+CREATE INDEX IF NOT EXISTS idx_companies_ats ON public.companies (ats);
+CREATE INDEX IF NOT EXISTS idx_companies_status ON public.companies (status);
+
+ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permitir leitura publica de companies" ON public.companies;
+CREATE POLICY "Permitir leitura publica de companies"
+  ON public.companies
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Permitir gestao pelo service_role" ON public.companies;
+CREATE POLICY "Permitir gestao pelo service_role"
+  ON public.companies
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- ==============================================================================
 -- Schema: Tabela Central de Vagas (Jobs) - QueroVagas & JobsFinder
 -- ==============================================================================
 
