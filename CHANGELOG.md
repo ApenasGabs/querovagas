@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.8.0](https://github.com/ApenasGabs/querovagas/compare/v1.7.1...v1.8.0) (2026-10-22)
+
+### ✨ Features
+
+* **radar:** carregar empresas e sugestões dinamicamente da tabela companies no Supabase ([#17](https://github.com/ApenasGabs/querovagas/issues/17)) ([02e2436](https://github.com/ApenasGabs/querovagas/commit/02e243607c7a05412f8d67400f8985e2f834b04e)), closes [#16](https://github.com/ApenasGabs/querovagas/issues/16) [#16](https://github.com/ApenasGabs/querovagas/issues/16) [#16](https://github.com/ApenasGabs/querovagas/issues/16) [#16](https://github.com/ApenasGabs/querovagas/issues/16)
+
 ## [1.7.1](https://github.com/ApenasGabs/querovagas/compare/v1.7.0...v1.7.1) (2026-10-22)
 
 ### 🐛 Bug Fixes
