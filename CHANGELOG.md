@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.7.0](https://github.com/ApenasGabs/querovagas/compare/v1.6.0...v1.7.0) (2026-10-22)
+
+### ✨ Features
+
+* **auth:** unificar autenticação exclusivamente via sessão do Utterances ([#13](https://github.com/ApenasGabs/querovagas/issues/13)) ([88f63d6](https://github.com/ApenasGabs/querovagas/commit/88f63d6c563fe49daf7e1e0cb8cb08784e4d751e)), closes [#12](https://github.com/ApenasGabs/querovagas/issues/12) [#12](https://github.com/ApenasGabs/querovagas/issues/12) [#12](https://github.com/ApenasGabs/querovagas/issues/12)
+
 ## [1.6.0](https://github.com/ApenasGabs/querovagas/compare/v1.5.1...v1.6.0) (2026-10-21)
 
 ### ✨ Features
