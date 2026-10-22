@@ -14,7 +14,6 @@ import { Button } from "./components/Button/Button";
 import { Footer } from "./components/Footer/Footer";
 import { Navbar } from "./components/Navbar/Navbar";
 import ThemeSelector from "./components/ThemeSelector/ThemeSelector";
-import { GithubAuthModal } from "./features/auth/components/GithubAuthModal";
 import { NavbarAuth } from "./features/auth/components/NavbarAuth";
 import { useDeveloperAuth } from "./features/auth/hooks/useDeveloperAuth";
 import { CompanyRadarModal } from "./features/companies/components/CompanyRadarModal";
@@ -30,12 +29,7 @@ export default function App(): ReactElement {
     status: authStatus,
     user: authUser,
     isVerified,
-    message: authMessage,
-    isModalOpen,
-    openModal,
-    closeModal,
-    signIn: handleSignIn,
-    loginWithGithubOAuth,
+    returnedFromUtterances,
     signOut: handleSignOut,
   } = useDeveloperAuth();
 
@@ -127,11 +121,10 @@ export default function App(): ReactElement {
             </a>
           )}
 
-          {/* Autenticação GitHub & Status de Verificação */}
+          {/* Status de Usuário Identificado via Utterances */}
           <NavbarAuth
             status={authStatus}
             user={authUser}
-            onSignIn={openModal}
             onSignOut={handleSignOut}
           />
 
@@ -158,7 +151,7 @@ export default function App(): ReactElement {
             <CompanyRadarModal
               isOpen={true}
               inline={true}
-              defaultTab="search"
+              defaultTab={returnedFromUtterances ? "devpedia" : "search"}
               defaultSuggestedBy={authUser?.username}
               onClose={() => {}}
             />
@@ -302,6 +295,7 @@ export default function App(): ReactElement {
           isOpen={isCompanyRadarOpen}
           onClose={() => setIsCompanyRadarOpen(false)}
           initialSearchQuery={radarInitialQuery}
+          defaultSuggestedBy={authUser?.username}
           onSelectCompanyForSearch={(companyName) => {
             setSearch(companyName);
             setPage(1);
@@ -311,16 +305,6 @@ export default function App(): ReactElement {
 
       {/* Modal de Detalhes da Vaga */}
       <JobModal job={selectedJob} onClose={() => selectJob(null)} />
-
-      {/* Modal de Identificação Direta com GitHub */}
-      <GithubAuthModal
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        onSubmit={handleSignIn}
-        onOAuth={loginWithGithubOAuth}
-        initialUsername={authUser?.username || ""}
-        initialMessage={authMessage}
-      />
 
       {/* Rodapé da Aplicação */}
       <Footer />

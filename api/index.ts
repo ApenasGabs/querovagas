@@ -125,9 +125,6 @@ const DEV_AUDIT_TOKEN =
   process.env.GITHUB_TRUST_TOKEN ||
   "";
 
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || "";
-const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || "";
-
 const DEV_TRUST_SECRET =
   process.env.DEV_TRUST_SECRET ||
   "querovagas-community-auth-secret-key-2026";
@@ -473,136 +470,98 @@ app.get("/jobs/:id", async (req: Request, res: Response) => {
 });
 
 // -------------------------------------------------------------
-// 1.04 FLUXO DE OAUTH DIRETO COM GITHUB (SEM SUPABASE)
-// -------------------------------------------------------------
-app.get("/auth/github", (req: Request, res: Response) => {
-  if (!GITHUB_CLIENT_ID) {
-    res.redirect("/?auth=no_client_id");
-    return;
-  }
-
-  const host = (req.headers["x-forwarded-host"] || req.headers.host || "querovagas.apenasgabs.dev") as string;
-  const proto = (req.headers["x-forwarded-proto"] || "https") as string;
-  const redirectUri = `${proto}://${host}/api/auth/github/callback`;
-
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
-    GITHUB_CLIENT_ID,
-  )}&scope=read:user&redirect_uri=${encodeURIComponent(redirectUri)}`;
-
-  res.redirect(githubAuthUrl);
-});
-
-app.get("/auth/github/callback", async (req: Request, res: Response) => {
-  const code = req.query.code as string | undefined;
-  if (!code || !GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
-    res.redirect("/?auth=failed&reason=missing_code_or_credentials");
-    return;
-  }
-
-  try {
-    const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        client_id: GITHUB_CLIENT_ID,
-        client_secret: GITHUB_CLIENT_SECRET,
-        code,
-      }),
-    });
-
-    const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string };
-    if (!tokenData.access_token) {
-      console.warn("[GitHubOAuth] Falha ao obter access_token:", tokenData);
-      res.redirect("/?auth=failed&reason=oauth_token_exchange");
-      return;
-    }
-
-    const accessToken = tokenData.access_token;
-
-    const userRes = await fetch("https://api.github.com/user", {
-      headers: {
-        "User-Agent": "QueroVagas-DevTrustEngine/1.0",
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!userRes.ok) {
-      res.redirect("/?auth=failed&reason=fetch_user_failed");
-      return;
-    }
-
-    const userData = (await userRes.json()) as {
-      login: string;
-      name?: string;
-      avatar_url?: string;
-    };
-
-    const authenticatedUser = userData.login;
-    const isVerified = await checkDeveloperReputation(authenticatedUser, accessToken);
-
-    if (isVerified) {
-      const trustToken = generateTrustToken(authenticatedUser);
-      const params = new URLSearchParams({
-        auth: "success",
-        token: trustToken,
-        username: authenticatedUser,
-        name: userData.name || authenticatedUser,
-        avatar: userData.avatar_url || "",
-      });
-      res.redirect(`/?${params.toString()}`);
-      return;
-    }
-
-    res.redirect(`/?auth=denied&username=${encodeURIComponent(authenticatedUser)}`);
-  } catch (err) {
-    console.warn("[GitHubOAuth] Erro no fluxo OAuth:", err);
-    res.redirect("/?auth=failed&reason=server_error");
-  }
-});
-
-// -------------------------------------------------------------
-// 1.05 AUTENTICAÇÃO E VERIFICAÇÃO DE REPUTAÇÃO TÉCNICA
+// 1.05 AUTENTICAÇÃO VIA SESSÃO DO UTTERANCES E REPUTAÇÃO TÉCNICA
 // -------------------------------------------------------------
 app.post("/auth/verify-trust", async (req: Request, res: Response) => {
   try {
-    const { username: rawUsername } = req.body || {};
-    let candidateUsername = typeof rawUsername === "string" ? rawUsername.trim().replace(/^@+/, "") : "";
-
-    if (!candidateUsername) {
-      res.status(400).json({ error: "Identificador de perfil do GitHub não informado" });
-      return;
-    }
-
+    const { username: rawUsername, utterancesSession } = req.body || {};
+    let candidateUsername =
+      typeof rawUsername === "string" ? rawUsername.trim().replace(/^@+/, "") : "";
+    let customAccessToken: string | undefined;
     let avatarUrl: string | undefined;
     let name: string | undefined;
 
-    // Busca dados públicos do perfil diretamente na API do GitHub
-    try {
-      const headers: Record<string, string> = {
-        "User-Agent": "QueroVagas-DevTrustEngine/1.0",
-        Accept: "application/vnd.github+json",
-      };
-      if (DEV_AUDIT_TOKEN) {
-        headers["Authorization"] = `Bearer ${DEV_AUDIT_TOKEN}`;
-      }
-      const ghRes = await fetch(`https://api.github.com/users/${encodeURIComponent(candidateUsername)}`, { headers });
-      if (ghRes.ok) {
-        const ghData = (await ghRes.json()) as { avatar_url?: string; name?: string; login?: string };
-        avatarUrl = ghData.avatar_url;
-        name = ghData.name || ghData.login || candidateUsername;
-        if (ghData.login) {
-          candidateUsername = ghData.login;
+    // Se recebeu a sessão do Utterances, troca pelo token OAuth do GitHub e obtém o usuário logado
+    if (typeof utterancesSession === "string" && utterancesSession.trim()) {
+      try {
+        const tokenRes = await fetch("https://api.utteranc.es/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Origin: "https://utteranc.es",
+            Referer: "https://utteranc.es/",
+          },
+          body: JSON.stringify(utterancesSession.trim()),
+        });
+
+        if (tokenRes.ok) {
+          const tokenData = (await tokenRes.json()) as unknown;
+          if (typeof tokenData === "string" && tokenData.trim()) {
+            customAccessToken = tokenData.trim();
+            const userRes = await fetch("https://api.github.com/user", {
+              headers: {
+                "User-Agent": "QueroVagas-DevTrustEngine/1.0",
+                Accept: "application/vnd.github+json",
+                Authorization: `Bearer ${customAccessToken}`,
+              },
+            });
+
+            if (userRes.ok) {
+              const userData = (await userRes.json()) as {
+                login?: string;
+                name?: string;
+                avatar_url?: string;
+              };
+              if (userData.login) {
+                candidateUsername = userData.login;
+                name = userData.name || userData.login;
+                avatarUrl = userData.avatar_url;
+              }
+            }
+          }
         }
+      } catch (err) {
+        console.warn("[UtterancesAuth] Falha ao validar sessão do Utterances:", err);
       }
-    } catch {
-      // Ignora falhas de rede na busca do perfil e segue para verificação
     }
 
-    const isVerified = await checkDeveloperReputation(candidateUsername);
+    if (!candidateUsername) {
+      res.status(400).json({ error: "Sessão do Utterances inválida ou usuário não identificado" });
+      return;
+    }
+
+    // Se ainda não temos os metadados do perfil (ex: chamada direta por username), busca na API pública do GitHub
+    if (!name && !avatarUrl) {
+      try {
+        const headers: Record<string, string> = {
+          "User-Agent": "QueroVagas-DevTrustEngine/1.0",
+          Accept: "application/vnd.github+json",
+        };
+        if (DEV_AUDIT_TOKEN) {
+          headers["Authorization"] = `Bearer ${DEV_AUDIT_TOKEN}`;
+        }
+        const ghRes = await fetch(
+          `https://api.github.com/users/${encodeURIComponent(candidateUsername)}`,
+          { headers },
+        );
+        if (ghRes.ok) {
+          const ghData = (await ghRes.json()) as {
+            avatar_url?: string;
+            name?: string;
+            login?: string;
+          };
+          avatarUrl = ghData.avatar_url;
+          name = ghData.name || ghData.login || candidateUsername;
+          if (ghData.login) {
+            candidateUsername = ghData.login;
+          }
+        }
+      } catch {
+        // Ignora falhas de rede na busca complementar do perfil
+      }
+    }
+
+    const isVerified = await checkDeveloperReputation(candidateUsername, customAccessToken);
 
     if (isVerified) {
       const trustToken = generateTrustToken(candidateUsername);
@@ -629,7 +588,7 @@ app.post("/auth/verify-trust", async (req: Request, res: Response) => {
         name: name || candidateUsername,
         avatarUrl,
       },
-      message: "Perfil não atende aos requisitos de conexão da comunidade.",
+      message: "Perfil identificado via Utterances.",
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao validar perfil";

@@ -164,9 +164,13 @@ describe("Express Reverse Proxy & Parser API", () => {
       expect(data.username).toBe("untrusted-dev-9999");
     });
 
-    it("should handle GET /api/auth/github redirect", async () => {
-      const res = await fetch(`${baseUrl}/api/auth/github`, { redirect: "manual" });
-      expect([301, 302, 307, 308]).toContain(res.status);
+    it("should return 400 on POST /api/auth/verify-trust with invalid utterancesSession", async () => {
+      const res = await fetch(`${baseUrl}/api/auth/verify-trust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ utterancesSession: "invalid_utterances_session" }),
+      });
+      expect(res.status).toBe(400);
     });
 
     it("should return empty jobs when trust is enforced and token is missing", async () => {
