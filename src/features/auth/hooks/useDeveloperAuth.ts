@@ -50,14 +50,14 @@ function getInitialAuthState(): InitialAuthState {
     };
   }
 
-  // 2. Se existe utterances-session no localStorage mas ainda não temos o perfil do usuário resolvido
-  if (utterancesSession && !localUser) {
+  // 2. Se existe utterances-session no localStorage mas ainda não temos a sessão de confiança ativa
+  if (utterancesSession && !localToken) {
     return {
       status: "loading",
-      user: null,
-      trustToken: localToken,
+      user: localUser,
+      trustToken: null,
       utterancesSessionToResolve: utterancesSession,
-      needsSessionValidation: Boolean(localToken),
+      needsSessionValidation: false,
       returnedFromUtterances: false,
     };
   }
