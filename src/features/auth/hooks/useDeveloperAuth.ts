@@ -1,11 +1,13 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  captureUtterancesSessionFromUrl,
   getStoredTrustToken,
   getStoredUserProfile,
+  getStoredUtterancesSession,
   setStoredTrustToken,
   setStoredUserProfile,
   signOut as signOutService,
-  verifyUsernameWithBackend,
+  verifyUtterancesSessionWithBackend,
   type AuthStatus,
   type UserProfile,
 } from "../../../services/trustAuthService";
@@ -14,111 +16,71 @@ export interface UseDeveloperAuthReturn {
   status: AuthStatus;
   user: UserProfile | null;
   trustToken: string | null;
-  message?: string;
   isVerified: boolean;
   isLoading: boolean;
-  isModalOpen: boolean;
-  openModal: () => void;
-  closeModal: () => void;
-  signIn: (username: string) => Promise<boolean>;
-  loginWithGithubOAuth: () => void;
+  returnedFromUtterances: boolean;
+  loginWithUtterances: () => void;
   signOut: () => void;
-  reverify: () => Promise<void>;
+  syncUtterancesSession: () => Promise<void>;
 }
 
 interface InitialAuthState {
   status: AuthStatus;
   user: UserProfile | null;
   trustToken: string | null;
-  message?: string;
-  isModalOpen: boolean;
+  utterancesSessionToResolve: string | null;
   needsSessionValidation: boolean;
+  returnedFromUtterances: boolean;
 }
 
 function getInitialAuthState(): InitialAuthState {
-  if (typeof window !== "undefined") {
-    const urlParams = new URLSearchParams(window.location.search);
-    const authParam = urlParams.get("auth");
-
-    if (authParam === "success") {
-      const token = urlParams.get("token");
-      const username = urlParams.get("username") || "dev";
-      const name = urlParams.get("name") || username;
-      const avatarUrl = urlParams.get("avatar") || undefined;
-
-      if (token) {
-        const profile: UserProfile = { username, name, avatarUrl };
-        setStoredTrustToken(token);
-        setStoredUserProfile(profile);
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return {
-          status: "verified",
-          user: profile,
-          trustToken: token,
-          message: undefined,
-          isModalOpen: false,
-          needsSessionValidation: false,
-        };
-      }
-    } else if (authParam === "denied") {
-      const deniedUser = urlParams.get("username");
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return {
-        status: "unauthenticated",
-        user: null,
-        trustToken: null,
-        message: deniedUser
-          ? `O perfil @${deniedUser} não atende aos requisitos de conexão da comunidade.`
-          : "Perfil não atende aos requisitos de conexão da comunidade.",
-        isModalOpen: false,
-        needsSessionValidation: false,
-      };
-    } else if (authParam === "failed") {
-      const reason = urlParams.get("reason");
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return {
-        status: "unauthenticated",
-        user: null,
-        trustToken: null,
-        message: reason
-          ? `Falha na autenticação via GitHub (${reason}). Tente novamente ou use a identificação direta abaixo.`
-          : "Falha na autenticação via GitHub. Tente novamente ou use a identificação direta abaixo.",
-        isModalOpen: true,
-        needsSessionValidation: false,
-      };
-    } else if (authParam === "no_client_id") {
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return {
-        status: "unauthenticated",
-        user: null,
-        trustToken: null,
-        message: "O login via GitHub requer as credenciais GITHUB_CLIENT_ID configuradas no ambiente. Utilize a identificação direta pelo seu usuário abaixo.",
-        isModalOpen: true,
-        needsSessionValidation: false,
-      };
-    }
-  }
-
+  const { session: utterancesSession, fromRedirect } = captureUtterancesSessionFromUrl();
   const localToken = getStoredTrustToken();
   const localUser = getStoredUserProfile();
+
+  // 1. Se acabou de voltar do login do Utterances (?utterances=...), resolve a nova sessão imediatamente
+  if (fromRedirect && utterancesSession) {
+    return {
+      status: "loading",
+      user: localUser,
+      trustToken: localToken,
+      utterancesSessionToResolve: utterancesSession,
+      needsSessionValidation: false,
+      returnedFromUtterances: true,
+    };
+  }
+
+  // 2. Se existe utterances-session no localStorage mas ainda não temos o perfil do usuário resolvido
+  if (utterancesSession && !localUser) {
+    return {
+      status: "loading",
+      user: null,
+      trustToken: localToken,
+      utterancesSessionToResolve: utterancesSession,
+      needsSessionValidation: Boolean(localToken),
+      returnedFromUtterances: false,
+    };
+  }
+
+  // 3. Se já possui trustToken local salvo, valida a sessão existente e hidrata o perfil
   if (localToken) {
     return {
       status: "loading",
       user: localUser,
       trustToken: localToken,
-      message: undefined,
-      isModalOpen: false,
+      utterancesSessionToResolve: null,
       needsSessionValidation: true,
+      returnedFromUtterances: false,
     };
   }
 
   return {
     status: "unauthenticated",
-    user: null,
+    user: localUser,
     trustToken: null,
-    message: undefined,
-    isModalOpen: false,
+    utterancesSessionToResolve: null,
     needsSessionValidation: false,
+    returnedFromUtterances: false,
   };
 }
 
@@ -127,9 +89,41 @@ export function useDeveloperAuth(): UseDeveloperAuthReturn {
   const [status, setStatus] = useState<AuthStatus>(initialState.status);
   const [user, setUser] = useState<UserProfile | null>(initialState.user);
   const [trustToken, setTrustToken] = useState<string | null>(initialState.trustToken);
-  const [message, setMessage] = useState<string | undefined>(initialState.message);
-  const [isModalOpen, setIsModalOpen] = useState(initialState.isModalOpen);
 
+  // Resolve sessão do Utterances quando capturada da URL ou do localStorage
+  useEffect(() => {
+    const sessionToResolve = initialState.utterancesSessionToResolve;
+    if (!sessionToResolve) return;
+
+    let isMounted = true;
+
+    verifyUtterancesSessionWithBackend(sessionToResolve)
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.user) {
+          setUser(res.user);
+        }
+        if (res.isVerified && res.trustToken) {
+          setTrustToken(res.trustToken);
+          setStatus("verified");
+        } else if (!initialState.needsSessionValidation) {
+          setTrustToken(null);
+          setStatus("unauthenticated");
+        }
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        if (!initialState.needsSessionValidation) {
+          setStatus("unauthenticated");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialState.utterancesSessionToResolve, initialState.needsSessionValidation]);
+
+  // Valida trustToken existente caso já estivesse autenticado antes e garante hidratação do user
   useEffect(() => {
     if (!initialState.needsSessionValidation || !initialState.trustToken) return;
 
@@ -147,6 +141,19 @@ export function useDeveloperAuth(): UseDeveloperAuthReturn {
             if (sessionData.isVerified) {
               setTrustToken(token);
               setStatus("verified");
+              const resolvedProfile: UserProfile | null =
+                sessionData.user ||
+                (sessionData.username
+                  ? {
+                      username: sessionData.username,
+                      name: sessionData.username,
+                      avatarUrl: `https://github.com/${sessionData.username}.png`,
+                    }
+                  : null);
+              if (resolvedProfile) {
+                setStoredUserProfile(resolvedProfile);
+                setUser(resolvedProfile);
+              }
             } else {
               setStoredTrustToken(null);
               setStoredUserProfile(null);
@@ -174,53 +181,48 @@ export function useDeveloperAuth(): UseDeveloperAuthReturn {
     };
   }, [initialState.needsSessionValidation, initialState.trustToken]);
 
-  const handleSignIn = useCallback(async (username: string): Promise<boolean> => {
-    const res = await verifyUsernameWithBackend(username);
+  const syncUtterancesSession = useCallback(async () => {
+    const { session } = captureUtterancesSessionFromUrl();
+    const activeSession = session || getStoredUtterancesSession();
+    if (!activeSession) return;
+
+    const res = await verifyUtterancesSessionWithBackend(activeSession);
+    if (res.user) {
+      setUser(res.user);
+    }
     if (res.isVerified && res.trustToken) {
       setTrustToken(res.trustToken);
-      setUser(res.user || { username });
       setStatus("verified");
-      setMessage(undefined);
-      return true;
     } else {
-      setMessage(res.message);
-      return false;
-    }
-  }, []);
-
-  const loginWithGithubOAuth = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.location.href = "/api/auth/github";
-    }
-  }, []);
-
-  const reverify = useCallback(async () => {
-    const localToken = getStoredTrustToken();
-    if (!localToken) {
-      setUser(null);
       setTrustToken(null);
       setStatus("unauthenticated");
-      return;
     }
-    try {
-      const res = await fetch("/api/auth/session", {
-        headers: { "x-trust-token": localToken },
-      });
-      if (res.ok) {
-        const sessionData = await res.json();
-        if (sessionData.isVerified) {
-          setTrustToken(localToken);
-          setStatus("verified");
-          return;
-        }
+  }, []);
+
+  // Sincroniza automaticamente caso utterances-session seja gravada pelo script do Utterances
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleStorageOrFocus = () => {
+      const currentSession = getStoredUtterancesSession();
+      const currentProfile = getStoredUserProfile();
+      if (currentSession && !currentProfile) {
+        void syncUtterancesSession();
       }
-      setStoredTrustToken(null);
-      setStoredUserProfile(null);
-      setUser(null);
-      setTrustToken(null);
-      setStatus("unauthenticated");
-    } catch {
-      setStatus("unauthenticated");
+    };
+
+    window.addEventListener("storage", handleStorageOrFocus);
+    window.addEventListener("focus", handleStorageOrFocus);
+    return () => {
+      window.removeEventListener("storage", handleStorageOrFocus);
+      window.removeEventListener("focus", handleStorageOrFocus);
+    };
+  }, [syncUtterancesSession]);
+
+  const loginWithUtterances = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const redirectUri = encodeURIComponent(window.location.href);
+      window.location.href = `https://api.utteranc.es/authorize?redirect_uri=${redirectUri}`;
     }
   }, []);
 
@@ -229,22 +231,17 @@ export function useDeveloperAuth(): UseDeveloperAuthReturn {
     setUser(null);
     setTrustToken(null);
     setStatus("unauthenticated");
-    setMessage(undefined);
   }, []);
 
   return {
     status,
     user,
     trustToken,
-    message,
     isVerified: status === "verified",
     isLoading: status === "loading",
-    isModalOpen,
-    openModal: () => setIsModalOpen(true),
-    closeModal: () => setIsModalOpen(false),
-    signIn: handleSignIn,
-    loginWithGithubOAuth,
+    returnedFromUtterances: initialState.returnedFromUtterances,
+    loginWithUtterances,
     signOut: handleSignOut,
-    reverify,
+    syncUtterancesSession,
   };
 }
