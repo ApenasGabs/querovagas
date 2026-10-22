@@ -434,21 +434,40 @@ app.get("/jobs", handleJobsParser);
 
 app.get("/jobs/stats", async (_req: Request, res: Response) => {
   try {
-    const { data, error } = await supabase
-      .from("jobs")
-      .select("work_model, seniority_level, source")
-      .eq("is_tech", true);
-
-    if (error || !data) {
-      res.json({ totalJobs: 0, byModel: {}, bySeniority: {}, bySource: {} });
+    // 1. Tenta carregar as métricas agregadas completas via RPC no banco
+    const { data: rpcStats, error: rpcError } = await supabase.rpc("get_job_stats");
+    if (
+      !rpcError &&
+      rpcStats &&
+      typeof rpcStats === "object" &&
+      typeof (rpcStats as Record<string, unknown>).totalJobs === "number"
+    ) {
+      res.json(rpcStats);
       return;
+    }
+
+    // 2. Fallback paginado para superar o limite padrão de 1.000 linhas do PostgREST
+    const allRows: Record<string, unknown>[] = [];
+    let from = 0;
+    const step = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("work_model, seniority_level, source")
+        .eq("is_tech", true)
+        .range(from, from + step - 1);
+
+      if (error || !data || data.length === 0) break;
+      allRows.push(...(data as Record<string, unknown>[]));
+      if (data.length < step) break;
+      from += step;
     }
 
     const byModel: Record<string, number> = {};
     const bySeniority: Record<string, number> = {};
     const bySource: Record<string, number> = {};
 
-    for (const row of data as Record<string, unknown>[]) {
+    for (const row of allRows) {
       const model = typeof row.work_model === "string" ? row.work_model : "NAO_INFORMADO";
       const seniority =
         typeof row.seniority_level === "string" ? row.seniority_level : "NAO_INFORMADO";
@@ -460,7 +479,7 @@ app.get("/jobs/stats", async (_req: Request, res: Response) => {
     }
 
     res.json({
-      totalJobs: data.length,
+      totalJobs: allRows.length,
       byModel,
       bySeniority,
       bySource,

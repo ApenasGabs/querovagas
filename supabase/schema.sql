@@ -121,3 +121,35 @@ CREATE POLICY "Permitir insercao publica de sugestoes"
   TO anon, authenticated
   WITH CHECK (true);
 
+-- ==============================================================================
+-- Function: Agregação Estatística de Vagas em Tempo Real (get_job_stats)
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.get_job_stats()
+RETURNS json
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+AS $$
+  SELECT json_build_object(
+    'totalJobs', COUNT(*)::int,
+    'byModel', COALESCE(
+      (SELECT json_object_agg(work_model, count)
+       FROM (SELECT COALESCE(work_model, 'NAO_INFORMADO') as work_model, COUNT(*)::int as count 
+             FROM public.jobs WHERE is_tech = true GROUP BY work_model) m), '{}'::json),
+    'bySeniority', COALESCE(
+      (SELECT json_object_agg(seniority_level, count)
+       FROM (SELECT COALESCE(seniority_level, 'NAO_INFORMADO') as seniority_level, COUNT(*)::int as count 
+             FROM public.jobs WHERE is_tech = true GROUP BY seniority_level) s), '{}'::json),
+    'bySource', COALESCE(
+      (SELECT json_object_agg(source, count)
+       FROM (SELECT COALESCE(source, 'OUTRO') as source, COUNT(*)::int as count 
+             FROM public.jobs WHERE is_tech = true GROUP BY source) src), '{}'::json)
+  )
+  FROM public.jobs
+  WHERE is_tech = true;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_job_stats() TO anon, authenticated, service_role;
+
+
