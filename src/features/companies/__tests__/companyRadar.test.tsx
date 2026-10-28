@@ -65,6 +65,11 @@ describe("CompanyCard", () => {
 });
 
 describe("CompanySuggestionForm", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
   it("deve detectar plataforma ATS automaticamente ao digitar a URL", async () => {
     const handleSuccess = vi.fn();
     render(<CompanySuggestionForm onSuccess={handleSuccess} />);
@@ -77,12 +82,67 @@ describe("CompanySuggestionForm", () => {
     });
   });
 
-  it("deve exigir preenchimento de campos obrigatórios", async () => {
+  it("deve manter botão habilitado para login com GitHub quando o usuário não estiver autenticado", () => {
+    const handleLogin = vi.fn();
+    render(<CompanySuggestionForm onSuccess={vi.fn()} onLogin={handleLogin} />);
+
+    const loginBtn = screen.getByRole("button", { name: /Entrar com GitHub para Sugerir/i });
+    expect(loginBtn).toBeEnabled();
+
+    // Digita dados parciais no formulário
+    const nameInput = screen.getByPlaceholderText(/Nubank, PicPay/i);
+    fireEvent.change(nameInput, { target: { value: "Empresa Teste" } });
+
+    fireEvent.click(loginBtn);
+
+    expect(handleLogin).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem("querovagas_company_suggestion_draft")).toContain("Empresa Teste");
+    expect(sessionStorage.getItem("querovagas_return_tab")).toBe("suggest");
+  });
+
+  it("deve restaurar rascunho do sessionStorage no formulário", () => {
+    sessionStorage.setItem(
+      "querovagas_company_suggestion_draft",
+      JSON.stringify({
+        name: "Startup Salva",
+        careerUrl: "https://startup.gupy.io",
+        ats: "GUPY",
+        notes: "Stack: React e Node",
+      }),
+    );
+
+    render(
+      <CompanySuggestionForm
+        onSuccess={vi.fn()}
+        user={{ username: "devcomunidade" }}
+      />,
+    );
+
+    expect(screen.getByDisplayValue("Startup Salva")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://startup.gupy.io")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Stack: React e Node")).toBeInTheDocument();
+    expect(screen.getByText("@devcomunidade")).toBeInTheDocument();
+  });
+
+  it("deve exigir preenchimento de campos obrigatórios quando autenticado", async () => {
     const handleSuccess = vi.fn();
-    render(<CompanySuggestionForm onSuccess={handleSuccess} />);
+    render(
+      <CompanySuggestionForm
+        onSuccess={handleSuccess}
+        user={{ username: "devcomunidade" }}
+      />,
+    );
 
     const submitBtn = screen.getByRole("button", { name: /Enviar para a Comunidade/i });
     expect(submitBtn).toBeDisabled();
+
+    const nameInput = screen.getByPlaceholderText(/Nubank, PicPay/i);
+    const urlInput = screen.getByPlaceholderText(/empresa\.gupy\.io/i);
+
+    fireEvent.change(nameInput, { target: { value: "Empresa Valida" } });
+    fireEvent.change(urlInput, { target: { value: "https://empresa.gupy.io" } });
+
+    expect(submitBtn).toBeEnabled();
   });
 });
 
@@ -124,6 +184,13 @@ describe("CompanyRadarModal", () => {
     expect(
       screen.getByPlaceholderText(/Digite o nome de uma empresa/i),
     ).toBeInTheDocument();
+  });
+
+  it("deve abrir na aba suggest quando querovagas_return_tab for suggest no sessionStorage", () => {
+    sessionStorage.setItem("querovagas_return_tab", "suggest");
+    render(<CompanyRadarModal isOpen={true} onClose={vi.fn()} />);
+
+    expect(screen.getByText(/Sugerir Nova Empresa para o Crawler/i)).toBeInTheDocument();
   });
 
   it("deve conter Agibank cadastrado com ATS Greenhouse no catálogo monitorado", async () => {

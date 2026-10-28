@@ -17,7 +17,8 @@ import type { Company } from "../../../types/company";
 import { companyService } from "../../../services/companyService";
 import { CommunityDiscussions } from "./CommunityDiscussions";
 import { CompanyCard } from "./CompanyCard";
-import { CompanySuggestionForm } from "./CompanySuggestionForm";
+import { CompanySuggestionForm, RETURN_TAB_KEY } from "./CompanySuggestionForm";
+import type { UserProfile } from "../../../services/trustAuthService";
 
 type TabType = "search" | "suggest" | "community" | "devpedia";
 
@@ -29,6 +30,8 @@ interface CompanyRadarModalProps {
   inline?: boolean;
   defaultTab?: TabType;
   defaultSuggestedBy?: string;
+  user?: UserProfile | null;
+  onLogin?: () => void;
 }
 
 export function CompanyRadarModal({
@@ -39,10 +42,20 @@ export function CompanyRadarModal({
   inline = false,
   defaultTab,
   defaultSuggestedBy = "",
+  user,
+  onLogin,
 }: CompanyRadarModalProps): ReactElement | null {
-  const [activeTab, setActiveTab] = useState<TabType>(
-    defaultTab ?? "search",
-  );
+  const getInitialTab = (): TabType => {
+    if (defaultTab) return defaultTab;
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      if (sessionStorage.getItem(RETURN_TAB_KEY) === "suggest") {
+        return "suggest";
+      }
+    }
+    return "search";
+  };
+
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
   const [searchTerm, setSearchTerm] = useState(initialSearchQuery);
   const [selectedATS, setSelectedATS] = useState<string>("ALL");
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -441,7 +454,9 @@ export function CompanyRadarModal({
           {activeTab === "suggest" && (
             <CompanySuggestionForm
               initialName={prefilledName}
-              defaultSuggestedBy={defaultSuggestedBy}
+              defaultSuggestedBy={user?.username ? `@${user.username}` : defaultSuggestedBy}
+              user={user}
+              onLogin={onLogin}
               onSuccess={handleSuggestSuccess}
               onCancel={() => setActiveTab("search")}
             />
