@@ -1,5 +1,5 @@
 import initialMonitoredCompanies from "../data/monitoredCompanies.ts";
-import type { Company, CompanyFilterParams, CompanySuggestionInput } from "../types/company";
+import type { ATSPlatform, Company, CompanyFilterParams, CompanySuggestionInput } from "../types/company";
 import { detectATS } from "../utils/atsDetector";
 
 const LOCAL_STORAGE_SUGGESTIONS_KEY = "querovagas_company_suggestions";
