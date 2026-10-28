@@ -6783,15 +6783,15 @@ app.get("/companies", async (req: Request, res: Response) => {
         .order("name", { ascending: true });
 
       if (!compErr && Array.isArray(compRows) && compRows.length > 0) {
-        dbCompanies = compRows.map((row: any) => ({
-          id: row.id || `comp-${String(row.ats || "outro").toLowerCase()}-${row.slug}`,
-          name: row.name,
-          slug: row.slug,
-          ats: row.ats,
-          careerUrl: row.career_url,
+        dbCompanies = compRows.map((row: Record<string, unknown>) => ({
+          id: (row.id as string) || `comp-${String(row.ats || "outro").toLowerCase()}-${row.slug}`,
+          name: row.name as string,
+          slug: row.slug as string,
+          ats: row.ats as string,
+          careerUrl: row.career_url as string,
           status: (row.status as "MONITORED" | "SUGGESTED") || "MONITORED",
-          activeJobsCount: row.active_jobs_count || 0,
-          hasTechJobs: row.has_tech_jobs ?? true,
+          activeJobsCount: (row.active_jobs_count as number) || 0,
+          hasTechJobs: (row.has_tech_jobs as boolean) ?? true,
         }));
       }
     } catch (e) {
@@ -6810,18 +6810,18 @@ app.get("/companies", async (req: Request, res: Response) => {
         .order("votes_count", { ascending: false });
 
       if (!sugErr && Array.isArray(sugRows) && sugRows.length > 0) {
-        communityList = sugRows.map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          slug: s.slug,
-          ats: s.ats,
-          careerUrl: s.career_url,
+        communityList = sugRows.map((s: Record<string, unknown>) => ({
+          id: s.id as string,
+          name: s.name as string,
+          slug: s.slug as string,
+          ats: s.ats as string,
+          careerUrl: s.career_url as string,
           status: "SUGGESTED" as const,
           activeJobsCount: 0,
-          suggestedBy: s.suggested_by || "Comunidade",
-          votesCount: s.votes_count || 1,
-          notes: s.notes,
-          createdAt: s.created_at,
+          suggestedBy: (s.suggested_by as string) || "Comunidade",
+          votesCount: (s.votes_count as number) || 1,
+          notes: s.notes as string | undefined,
+          createdAt: s.created_at as string,
         }));
       }
     } catch {

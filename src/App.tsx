@@ -153,8 +153,17 @@ export default function App(): ReactElement {
             <CompanyRadarModal
               isOpen={true}
               inline={true}
-              defaultTab={returnedFromUtterances ? "devpedia" : "search"}
+              defaultTab={
+                returnedFromUtterances
+                  ? typeof window !== "undefined" &&
+                    sessionStorage.getItem("querovagas_return_tab") === "suggest"
+                    ? "suggest"
+                    : "devpedia"
+                  : undefined
+              }
               defaultSuggestedBy={authUser?.username}
+              user={authUser}
+              onLogin={loginWithUtterances}
               onClose={() => {}}
             />
           </div>
@@ -298,6 +307,8 @@ export default function App(): ReactElement {
           onClose={() => setIsCompanyRadarOpen(false)}
           initialSearchQuery={radarInitialQuery}
           defaultSuggestedBy={authUser?.username}
+          user={authUser}
+          onLogin={loginWithUtterances}
           onSelectCompanyForSearch={(companyName) => {
             setSearch(companyName);
             setPage(1);

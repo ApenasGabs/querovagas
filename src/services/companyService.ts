@@ -103,15 +103,15 @@ export class CompanyService {
 
         const { data, error } = await query;
         if (!error && Array.isArray(data) && data.length > 0) {
-          const mapped: Company[] = data.map((r: any) => ({
-            id: r.id,
-            name: r.name,
-            slug: r.slug,
-            ats: r.ats,
-            careerUrl: r.career_url,
+          const mapped: Company[] = data.map((r: Record<string, unknown>) => ({
+            id: r.id as string,
+            name: r.name as string,
+            slug: r.slug as string,
+            ats: (r.ats as ATSPlatform) || "OUTRO",
+            careerUrl: r.career_url as string,
             status: (r.status as "MONITORED" | "SUGGESTED") || "MONITORED",
-            activeJobsCount: r.active_jobs_count || 0,
-            hasTechJobs: r.has_tech_jobs ?? true,
+            activeJobsCount: (r.active_jobs_count as number) || 0,
+            hasTechJobs: (r.has_tech_jobs as boolean) ?? true,
           }));
           return this.enrichWithLocalVotes(mapped);
         }
