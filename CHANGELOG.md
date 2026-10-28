@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.8.1](https://github.com/ApenasGabs/querovagas/compare/v1.8.0...v1.8.1) (2026-10-28)
+
+### 🐛 Bug Fixes
+
+* **companies:** habilitar botao de sugestao para login e salvar rascunho (Refs [#18](https://github.com/ApenasGabs/querovagas/issues/18)) ([#19](https://github.com/ApenasGabs/querovagas/issues/19)) ([8dc268e](https://github.com/ApenasGabs/querovagas/commit/8dc268e3b7dffc50d4a2c7dfc73cfdbda9a0a530))
+
 ## [1.8.0](https://github.com/ApenasGabs/querovagas/compare/v1.7.1...v1.8.0) (2026-10-22)
 
 ### ✨ Features
