@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.9.0](https://github.com/ApenasGabs/querovagas/compare/v1.8.1...v1.9.0) (2026-10-31)
+
+### ✨ Features
+
+* **analytics:** implementar telemetria de produto e funil de conversão com PostHog (Refs [#20](https://github.com/ApenasGabs/querovagas/issues/20)) ([6da4b23](https://github.com/ApenasGabs/querovagas/commit/6da4b23778101f5a91ce1da50ff471df5a768bfb))
+
 ## [1.8.1](https://github.com/ApenasGabs/querovagas/compare/v1.8.0...v1.8.1) (2026-10-28)
 
 ### 🐛 Bug Fixes
