@@ -31,3 +31,5 @@ export const getJobDataSource = (): IJobDataSource => {
 export type { IJobDataSource } from "./dataSource.interface";
 export { MockJobDataSource } from "./mockSource";
 export { SupabaseJobDataSource } from "./supabaseSource";
+export * from "./analytics";
+

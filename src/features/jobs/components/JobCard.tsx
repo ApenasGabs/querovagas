@@ -2,6 +2,7 @@ import { Briefcase, Building, Clock, MapPin } from "lucide-react";
 import type { Job, SeniorityLevel, WorkModel } from "../../../types/job";
 import { Badge } from "../../../components/Badge/Badge";
 import { Button } from "../../../components/Button/Button";
+import { trackJobCardClicked } from "../../../services/analytics";
 
 interface JobCardProps {
   job: Job;
@@ -64,6 +65,11 @@ export const JobCard = ({ job, onSelect }: JobCardProps) => {
   const seniorityInfo = getSeniorityBadge(job.seniorityLevel);
   const timeAgo = formatRelativeTime(job.scrapedAt);
 
+  const handleSelect = () => {
+    trackJobCardClicked(job);
+    onSelect(job);
+  };
+
   return (
     <div className="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 flex flex-col justify-between group">
       <div className="card-body p-5 space-y-3">
@@ -92,7 +98,7 @@ export const JobCard = ({ job, onSelect }: JobCardProps) => {
         <h3
           className="text-base font-bold text-base-content line-clamp-2 leading-snug group-hover:text-primary transition-colors cursor-pointer"
           title={job.title}
-          onClick={() => onSelect(job)}
+          onClick={handleSelect}
         >
           {job.title}
         </h3>
@@ -148,7 +154,7 @@ export const JobCard = ({ job, onSelect }: JobCardProps) => {
         <Button
           variant="primary"
           size="sm"
-          onClick={() => onSelect(job)}
+          onClick={handleSelect}
           className="gap-1.5 shrink-0"
         >
           <span>Ver Vaga</span>
