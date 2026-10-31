@@ -23,6 +23,13 @@ import { JobModal } from "./features/jobs/components/JobModal";
 import { JobSkeleton } from "./features/jobs/components/JobSkeleton";
 import { JobStatsBanner } from "./features/jobs/components/JobStatsBanner";
 import { useJobs } from "./features/jobs/hooks/useJobs";
+import {
+  trackCompanyRadarOpened,
+  trackLoginCompleted,
+  trackLoginInitiated,
+  trackLogout,
+  trackPageView,
+} from "./services/analytics";
 
 export default function App(): ReactElement {
   const {
@@ -63,6 +70,37 @@ export default function App(): ReactElement {
   const [isCompanyRadarOpen, setIsCompanyRadarOpen] = useState(false);
   const [radarInitialQuery, setRadarInitialQuery] = useState("");
 
+  // Rastreia visualização de página com status de autenticação
+  useEffect(() => {
+    trackPageView({
+      is_verified: isVerified,
+      username: authUser?.username,
+    });
+  }, [isVerified, authUser?.username]);
+
+  // Rastreia conclusão e sucesso do login
+  useEffect(() => {
+    if (isVerified && authUser?.username) {
+      trackLoginCompleted({ username: authUser.username });
+    }
+  }, [isVerified, authUser?.username]);
+
+  const handleLogin = (source: "navbar" | "radar" | "inline" = "navbar") => {
+    trackLoginInitiated(source);
+    loginWithUtterances();
+  };
+
+  const handleLogout = () => {
+    trackLogout();
+    handleSignOut();
+  };
+
+  const handleOpenRadar = (source: string = "navbar") => {
+    trackCompanyRadarOpened(source);
+    setRadarInitialQuery(search.trim());
+    setIsCompanyRadarOpen(true);
+  };
+
   // Recarrega as vagas assim que a autorização de desenvolvedor é concedida
   useEffect(() => {
     if (isVerified) {
@@ -97,10 +135,7 @@ export default function App(): ReactElement {
           {/* Botão de Radar de Empresas & Comunidade (visível quando logado com acesso às vagas) */}
           {isVerified && (
             <button
-              onClick={() => {
-                setRadarInitialQuery(search.trim());
-                setIsCompanyRadarOpen(true);
-              }}
+              onClick={() => handleOpenRadar("navbar")}
               className="btn btn-sm btn-outline btn-primary px-2 sm:px-3 gap-1 sm:gap-1.5 shadow-xs shrink-0"
               title="Pesquisar se uma empresa é monitorada ou indicar nova empresa"
             >
@@ -126,8 +161,8 @@ export default function App(): ReactElement {
           <NavbarAuth
             status={authStatus}
             user={authUser}
-            onSignIn={loginWithUtterances}
-            onSignOut={handleSignOut}
+            onSignIn={() => handleLogin("navbar")}
+            onSignOut={handleLogout}
           />
 
           <ThemeSelector />
@@ -163,7 +198,7 @@ export default function App(): ReactElement {
               }
               defaultSuggestedBy={authUser?.username}
               user={authUser}
-              onLogin={loginWithUtterances}
+              onLogin={() => handleLogin("radar")}
               onClose={() => {}}
             />
           </div>
@@ -242,10 +277,7 @@ export default function App(): ReactElement {
                     <button
                       type="button"
                       className="btn btn-sm btn-outline btn-primary gap-1.5"
-                      onClick={() => {
-                        setRadarInitialQuery(search.trim());
-                        setIsCompanyRadarOpen(true);
-                      }}
+                      onClick={() => handleOpenRadar("search_button")}
                     >
                       <Radar className="w-4 h-4" />
                       <span>Ver se &ldquo;{search.trim()}&rdquo; é monitorada</span>
@@ -308,7 +340,7 @@ export default function App(): ReactElement {
           initialSearchQuery={radarInitialQuery}
           defaultSuggestedBy={authUser?.username}
           user={authUser}
-          onLogin={loginWithUtterances}
+          onLogin={() => handleLogin("radar")}
           onSelectCompanyForSearch={(companyName) => {
             setSearch(companyName);
             setPage(1);

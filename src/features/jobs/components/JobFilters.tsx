@@ -2,6 +2,7 @@ import { Filter, MapPin, RotateCcw, Search, Sparkles } from "lucide-react";
 import { Button } from "../../../components/Button/Button";
 import type { SeniorityLevel, WorkModel } from "../../../types/job";
 import { LOCATION_SELECT_GROUPS } from "../../../services/locationConstants";
+import { trackJobFilterApplied } from "../../../services/analytics";
 
 interface JobFiltersProps {
   search: string;
@@ -102,7 +103,10 @@ export const JobFilters = ({
             return (
               <button
                 key={opt.value}
-                onClick={() => onSeniorityChange(opt.value)}
+                onClick={() => {
+                  trackJobFilterApplied("seniority", opt.value);
+                  onSeniorityChange(opt.value);
+                }}
                 className={`btn btn-xs md:btn-sm rounded-lg transition-all ${active
                   ? "btn-primary shadow-xs"
                   : "btn-ghost bg-base-200/80 hover:bg-base-200 text-base-content/80"
@@ -139,7 +143,10 @@ export const JobFilters = ({
           <select
             id="location-select"
             value={location}
-            onChange={(e) => onLocationChange(e.target.value)}
+            onChange={(e) => {
+              trackJobFilterApplied("location", e.target.value);
+              onLocationChange(e.target.value);
+            }}
             className="select select-bordered select-sm md:select-md w-full rounded-xl font-medium focus:outline-primary bg-base-100 text-sm shadow-2xs"
           >
             {LOCATION_SELECT_GROUPS.map((group) => (
@@ -166,7 +173,10 @@ export const JobFilters = ({
             return (
               <button
                 key={opt.value}
-                onClick={() => onWorkModelChange(opt.value)}
+                onClick={() => {
+                  trackJobFilterApplied("workModel", opt.value);
+                  onWorkModelChange(opt.value);
+                }}
                 className={`btn btn-xs md:btn-sm rounded-lg transition-all ${active
                   ? "btn-primary shadow-xs"
                   : "btn-ghost bg-base-200/80 hover:bg-base-200 text-base-content/80"
@@ -192,7 +202,13 @@ export const JobFilters = ({
               return (
                 <button
                   key={st}
-                  onClick={() => onStackChange(active ? "" : st)}
+                  onClick={() => {
+                    const nextVal = active ? "" : st;
+                    if (nextVal) {
+                      trackJobFilterApplied("stack", nextVal);
+                    }
+                    onStackChange(nextVal);
+                  }}
                   className={`text-xs px-2.5 py-1 rounded-md transition-all font-medium ${active
                     ? "bg-accent text-accent-content font-bold shadow-xs"
                     : "bg-base-200 hover:bg-base-300 text-base-content/70"

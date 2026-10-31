@@ -10,6 +10,7 @@ import {
 import type { Job } from "../../../types/job";
 import { Badge } from "../../../components/Badge/Badge";
 import { Button } from "../../../components/Button/Button";
+import { trackJobApplyClicked, trackJobShared } from "../../../services/analytics";
 
 interface JobModalProps {
   job: Job | null;
@@ -23,6 +24,7 @@ export const JobModal = ({ job, onClose }: JobModalProps) => {
 
   const handleCopyLink = async () => {
     try {
+      trackJobShared(job, "copy_link");
       await navigator.clipboard.writeText(job.url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -32,6 +34,7 @@ export const JobModal = ({ job, onClose }: JobModalProps) => {
   };
 
   const handleShareWhatsApp = () => {
+    trackJobShared(job, "whatsapp");
     const text = `🔥 Vaga de Tecnologia: *${job.title}* na *${job.company}*\n📍 Local: ${job.location}\n💼 Modelo: ${job.workModel} | ${job.contractType}\n🔗 Candidate-se aqui: ${job.url}`;
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(waUrl, "_blank", "noopener,noreferrer");
@@ -162,6 +165,15 @@ export const JobModal = ({ job, onClose }: JobModalProps) => {
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-primary btn-sm gap-2"
+              onClick={() => {
+                trackJobApplyClicked({
+                  id: job.id,
+                  title: job.title,
+                  company: job.company,
+                  source: job.source,
+                  url: job.url,
+                });
+              }}
             >
               <span>Candidatar-se na {job.source}</span>
               <ExternalLink className="w-4 h-4" />
