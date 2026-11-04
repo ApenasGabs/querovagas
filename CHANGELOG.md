@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.10.3](https://github.com/ApenasGabs/querovagas/compare/v1.10.2...v1.10.3) (2026-11-04)
+
+### 🐛 Bug Fixes
+
+* **api:** implementar edge caching na CDN da Vercel para estancar consumo de Active CPU (Refs [#27](https://github.com/ApenasGabs/querovagas/issues/27)) ([46c67af](https://github.com/ApenasGabs/querovagas/commit/46c67af9d9ba003540adbdd420c3b8d569935568))
+
 ## [1.10.2](https://github.com/ApenasGabs/querovagas/compare/v1.10.1...v1.10.2) (2026-11-04)
 
 ### 🐛 Bug Fixes
