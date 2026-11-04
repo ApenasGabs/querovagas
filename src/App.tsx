@@ -8,7 +8,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { ReactElement } from "react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Alert } from "./components/Alert/Alert";
 import { Button } from "./components/Button/Button";
 import { Footer } from "./components/Footer/Footer";
@@ -16,13 +16,23 @@ import { Navbar } from "./components/Navbar/Navbar";
 import ThemeSelector from "./components/ThemeSelector/ThemeSelector";
 import { NavbarAuth } from "./features/auth/components/NavbarAuth";
 import { useDeveloperAuth } from "./features/auth/hooks/useDeveloperAuth";
-import { CompanyRadarModal } from "./features/companies/components/CompanyRadarModal";
 import { JobCard } from "./features/jobs/components/JobCard";
 import { JobFilters } from "./features/jobs/components/JobFilters";
-import { JobModal } from "./features/jobs/components/JobModal";
 import { JobSkeleton } from "./features/jobs/components/JobSkeleton";
 import { JobStatsBanner } from "./features/jobs/components/JobStatsBanner";
 import { useJobs } from "./features/jobs/hooks/useJobs";
+
+const CompanyRadarModal = lazy(() =>
+  import("./features/companies/components/CompanyRadarModal").then((m) => ({
+    default: m.CompanyRadarModal,
+  })),
+);
+
+const JobModal = lazy(() =>
+  import("./features/jobs/components/JobModal").then((m) => ({
+    default: m.JobModal,
+  })),
+);
 import {
   trackCompanyRadarOpened,
   trackLoginCompleted,
@@ -185,22 +195,30 @@ export default function App(): ReactElement {
             </div>
 
             {/* Painel Central de Empresas e Busca em Primeiro Plano */}
-            <CompanyRadarModal
-              isOpen={true}
-              inline={true}
-              defaultTab={
-                returnedFromUtterances
-                  ? typeof window !== "undefined" &&
-                    sessionStorage.getItem("querovagas_return_tab") === "suggest"
-                    ? "suggest"
-                    : "devpedia"
-                  : undefined
+            <Suspense
+              fallback={
+                <div className="p-12 text-center bg-base-100 rounded-3xl border border-base-300">
+                  <span className="loading loading-spinner loading-md text-primary" />
+                </div>
               }
-              defaultSuggestedBy={authUser?.username}
-              user={authUser}
-              onLogin={() => handleLogin("radar")}
-              onClose={() => {}}
-            />
+            >
+              <CompanyRadarModal
+                isOpen={true}
+                inline={true}
+                defaultTab={
+                  returnedFromUtterances
+                    ? typeof window !== "undefined" &&
+                      sessionStorage.getItem("querovagas_return_tab") === "suggest"
+                      ? "suggest"
+                      : "devpedia"
+                    : undefined
+                }
+                defaultSuggestedBy={authUser?.username}
+                user={authUser}
+                onLogin={() => handleLogin("radar")}
+                onClose={() => {}}
+              />
+            </Suspense>
           </div>
         ) : (
           <>
@@ -333,23 +351,29 @@ export default function App(): ReactElement {
       </main>
 
       {/* Modal do Radar de Empresas & Comunidade (visível quando logado com acesso às vagas) */}
-      {isVerified && (
-        <CompanyRadarModal
-          isOpen={isCompanyRadarOpen}
-          onClose={() => setIsCompanyRadarOpen(false)}
-          initialSearchQuery={radarInitialQuery}
-          defaultSuggestedBy={authUser?.username}
-          user={authUser}
-          onLogin={() => handleLogin("radar")}
-          onSelectCompanyForSearch={(companyName) => {
-            setSearch(companyName);
-            setPage(1);
-          }}
-        />
+      {isVerified && isCompanyRadarOpen && (
+        <Suspense fallback={null}>
+          <CompanyRadarModal
+            isOpen={isCompanyRadarOpen}
+            onClose={() => setIsCompanyRadarOpen(false)}
+            initialSearchQuery={radarInitialQuery}
+            defaultSuggestedBy={authUser?.username}
+            user={authUser}
+            onLogin={() => handleLogin("radar")}
+            onSelectCompanyForSearch={(companyName) => {
+              setSearch(companyName);
+              setPage(1);
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Modal de Detalhes da Vaga */}
-      <JobModal job={selectedJob} onClose={() => selectJob(null)} />
+      {selectedJob && (
+        <Suspense fallback={null}>
+          <JobModal job={selectedJob} onClose={() => selectJob(null)} />
+        </Suspense>
+      )}
 
       {/* Rodapé da Aplicação */}
       <Footer />

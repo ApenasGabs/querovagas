@@ -130,6 +130,7 @@ export class SupabaseJobDataSource implements IJobDataSource {
       workModel = "ALL",
       location = "ALL",
       source = "ALL",
+      stack = "",
       page = 1,
       pageSize = 12,
     } = params;
@@ -199,6 +200,10 @@ export class SupabaseJobDataSource implements IJobDataSource {
 
     if (source && source !== "ALL") {
       query = query.eq("source", source);
+    }
+
+    if (stack && stack.trim() && stack !== "ALL") {
+      query = query.contains("stack", [stack.trim()]);
     }
 
     const from = (page - 1) * pageSize;
@@ -358,5 +363,61 @@ export class SupabaseJobDataSource implements IJobDataSource {
       bySeniority,
       bySource,
     };
+  };
+
+  public getPopularStacks = async (): Promise<string[]> => {
+    if (this.isProxy) {
+      try {
+        const res = await fetch(`${this.baseUrl}/jobs/popular-stacks`);
+        if (res.ok) {
+          const data = (await res.json()) as unknown;
+          if (Array.isArray(data)) {
+            return data.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+          }
+        }
+      } catch (err) {
+        console.warn("[SupabaseJobDataSource] Falha proxy getPopularStacks. Usando fallback direto:", err);
+      }
+    }
+
+    const client = this.getFallbackClient();
+
+    try {
+      const { data: rpcStacks, error: rpcErr } = await client.rpc("get_popular_stacks", {
+        limit_count: 15,
+      });
+      if (!rpcErr && Array.isArray(rpcStacks) && rpcStacks.length > 0) {
+        return rpcStacks.filter((s): s is string => typeof s === "string" && s.trim().length > 0);
+      }
+    } catch {
+      // Continua para o fallback de agregação
+    }
+
+    const { data, error } = await client
+      .from(this.tableName)
+      .select("stack")
+      .eq("is_tech", true)
+      .limit(1000);
+
+    if (error || !data) {
+      return [];
+    }
+
+    const counts = new Map<string, number>();
+    for (const row of data as Array<{ stack?: unknown }>) {
+      if (Array.isArray(row.stack)) {
+        for (const item of row.stack) {
+          if (typeof item === "string" && item.trim()) {
+            const normalized = item.trim();
+            counts.set(normalized, (counts.get(normalized) || 0) + 1);
+          }
+        }
+      }
+    }
+
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name)
+      .slice(0, 15);
   };
 }

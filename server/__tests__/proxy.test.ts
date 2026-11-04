@@ -117,6 +117,13 @@ describe("Express Reverse Proxy & Parser API", () => {
     expect(data.totalJobs).toBeGreaterThan(0);
   });
 
+  it("should handle Parser GET /api/jobs/popular-stacks endpoint", async () => {
+    const res = await fetch(`${baseUrl}/api/jobs/popular-stacks`);
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as string[];
+    expect(Array.isArray(data)).toBe(true);
+  });
+
   describe("Developer Trust & Community Auth Protection", () => {
     it("should return isVerified: false on GET /api/auth/session without trust token", async () => {
       const res = await fetch(`${baseUrl}/api/auth/session`);

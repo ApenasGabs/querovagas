@@ -64,6 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_jobs_scraped_at ON public.jobs (scraped_at DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_seniority ON public.jobs (seniority_level);
 CREATE INDEX IF NOT EXISTS idx_jobs_work_model ON public.jobs (work_model);
 CREATE INDEX IF NOT EXISTS idx_jobs_source ON public.jobs (source);
+CREATE INDEX IF NOT EXISTS idx_jobs_stack ON public.jobs USING GIN (stack);
 
 -- 3. Habilitação de Segurança em Nível de Linha (Row Level Security - RLS)
 ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;
@@ -120,6 +121,64 @@ CREATE POLICY "Permitir insercao publica de sugestoes"
   FOR INSERT
   TO anon, authenticated
   WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permitir upvote publico de sugestoes" ON public.company_suggestions;
+CREATE POLICY "Permitir upvote publico de sugestoes"
+  ON public.company_suggestions
+  FOR UPDATE
+  TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+
+-- ==============================================================================
+-- Function: Agregação de Stacks Populares (get_popular_stacks)
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.get_popular_stacks(limit_count integer DEFAULT 15)
+RETURNS SETOF text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+AS $$
+  SELECT trim(tech) AS stack_name
+  FROM public.jobs,
+       LATERAL unnest(stack) AS tech
+  WHERE is_tech = true
+    AND trim(tech) <> ''
+  GROUP BY trim(tech)
+  ORDER BY COUNT(*) DESC, stack_name ASC
+  LIMIT GREATEST(limit_count, 1);
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_popular_stacks(integer) TO anon, authenticated, service_role;
+
+-- ==============================================================================
+-- Function: Contagem Agrupada de Vagas Ativas por Empresa (get_company_active_counts)
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.get_company_active_counts()
+RETURNS TABLE (
+  company text,
+  active_count integer,
+  source text,
+  sample_url text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+AS $$
+  SELECT
+    company,
+    COUNT(*)::int AS active_count,
+    MAX(source) AS source,
+    MAX(url) AS sample_url
+  FROM public.jobs
+  WHERE is_tech = true
+    AND trim(company) <> ''
+  GROUP BY company;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_company_active_counts() TO anon, authenticated, service_role;
 
 -- ==============================================================================
 -- Function: Agregação Estatística de Vagas em Tempo Real (get_job_stats)
