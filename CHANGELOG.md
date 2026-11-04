@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.10.1](https://github.com/ApenasGabs/querovagas/compare/v1.10.0...v1.10.1) (2026-11-04)
+
+### 🐛 Bug Fixes
+
+* **radar:** suportar paginacao completa no Supabase e enriquecer catalogo com 1222 empresas (Refs [#23](https://github.com/ApenasGabs/querovagas/issues/23)) ([93901a2](https://github.com/ApenasGabs/querovagas/commit/93901a283f70e9ff740b1d711e5ebc62b7cf98a4))
+
 ## [1.10.0](https://github.com/ApenasGabs/querovagas/compare/v1.9.0...v1.10.0) (2026-11-04)
 
 ### ✨ Features
