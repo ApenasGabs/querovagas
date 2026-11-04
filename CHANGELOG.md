@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.10.0](https://github.com/ApenasGabs/querovagas/compare/v1.9.0...v1.10.0) (2026-11-04)
+
+### ✨ Features
+
+* **arquitetura:** otimizações de integração e persistência do Radar (Refs [#5](https://github.com/ApenasGabs/querovagas/issues/5)) ([ac033e1](https://github.com/ApenasGabs/querovagas/commit/ac033e1304e693dbdf1b2b88160c9fb681841279))
+
 ## [1.9.0](https://github.com/ApenasGabs/querovagas/compare/v1.8.1...v1.9.0) (2026-10-31)
 
 ### ✨ Features
