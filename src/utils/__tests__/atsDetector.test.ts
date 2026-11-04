@@ -41,6 +41,20 @@ describe("detectATS", () => {
     expect(result.isKnownATS).toBe(true);
   });
 
+  it("deve detectar GeekHunter", () => {
+    const result = detectATS("https://geekhunter.com.br/vagas");
+    expect(result.ats).toBe("GEEKHUNTER");
+    expect(result.isKnownATS).toBe(true);
+  });
+
+  it("deve detectar plataforma Trakstar a partir de subdomínio", () => {
+    const result = detectATS("https://sensedia.hire.trakstar.com/");
+    expect(result.ats).toBe("TRAKSTAR");
+    expect(result.isKnownATS).toBe(true);
+    expect(result.platformName).toBe("Trakstar");
+    expect(result.cleanUrl).toBe("https://sensedia.hire.trakstar.com/");
+  });
+
   it("deve retornar OUTRO para plataformas genéricas ou domínios próprios", () => {
     const result = detectATS("https://empresa.com.br/carreiras");
     expect(result.ats).toBe("OUTRO");

@@ -2733,21 +2733,11 @@ export const initialMonitoredCompanies: Company[] = [
     "hasTechJobs": true
   },
   {
-    "id": "comp-smartrecruiters-ciandt",
+    "id": "comp-direct-ciandt",
     "name": "CI&T",
     "slug": "ciandt",
-    "ats": "SMARTRECRUITERS",
-    "careerUrl": "https://careers.smartrecruiters.com/CIAndT",
-    "status": "MONITORED",
-    "activeJobsCount": 0,
-    "hasTechJobs": true
-  },
-  {
-    "id": "comp-smartrecruiters-cit",
-    "name": "CI&T (Portal CIT)",
-    "slug": "cit",
-    "ats": "SMARTRECRUITERS",
-    "careerUrl": "https://jobs.smartrecruiters.com/CIT",
+    "ats": "OUTRO",
+    "careerUrl": "https://ciandt.com/br/pt-br/carreiras/oportunidades",
     "status": "MONITORED",
     "activeJobsCount": 0,
     "hasTechJobs": true
@@ -9990,6 +9980,16 @@ export const initialMonitoredCompanies: Company[] = [
     "careerUrl": "https://senhorcontabil.vagas.solides.com.br",
     "status": "MONITORED",
     "activeJobsCount": 0,
+    "hasTechJobs": true
+  },
+  {
+    "id": "comp-trakstar-sensedia",
+    "name": "Sensedia",
+    "slug": "sensedia",
+    "ats": "TRAKSTAR",
+    "careerUrl": "https://sensedia.hire.trakstar.com/",
+    "status": "MONITORED",
+    "activeJobsCount": 14,
     "hasTechJobs": true
   },
   {

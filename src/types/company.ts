@@ -9,6 +9,7 @@ export type ATSPlatform =
   | "INHIRE"
   | "PROGRAMATHOR"
   | "GEEKHUNTER"
+  | "TRAKSTAR"
   | "OUTRO";
 
 export interface Company {

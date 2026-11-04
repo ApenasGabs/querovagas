@@ -104,6 +104,15 @@ export function detectATS(rawUrl: string): ATSDetectionResult {
     };
   }
 
+  if (hostname.includes("trakstar.com")) {
+    return {
+      ats: "TRAKSTAR",
+      platformName: "Trakstar",
+      cleanUrl: normalizedUrl,
+      isKnownATS: true,
+    };
+  }
+
   return {
     ats: "OUTRO",
     platformName: "Outro / Site de Carreiras",
