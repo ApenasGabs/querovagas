@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.10.2](https://github.com/ApenasGabs/querovagas/compare/v1.10.1...v1.10.2) (2026-11-04)
+
+### 🐛 Bug Fixes
+
+* **catalog:** corrigir portal da CI&T, remover CIT e incluir Sensedia (Refs [#25](https://github.com/ApenasGabs/querovagas/issues/25)) ([c0bc133](https://github.com/ApenasGabs/querovagas/commit/c0bc133a1690d193c0f1961bb8983de5c4d6edf9))
+
 ## [1.10.1](https://github.com/ApenasGabs/querovagas/compare/v1.10.0...v1.10.1) (2026-11-04)
 
 ### 🐛 Bug Fixes
