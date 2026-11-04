@@ -226,8 +226,68 @@ describe("Express Reverse Proxy & Parser API", () => {
         },
       });
       expect(res.status).toBe(404);
+      expect(res.headers.get("cache-control")).toContain("no-store");
       const data = (await res.json()) as { error: string };
       expect(data.error).toBe("Vaga não encontrada");
+    });
+
+    it("should return Edge Cache headers on GET /api/jobs/stats", async () => {
+      const res = await fetch(`${baseUrl}/api/jobs/stats`);
+      expect(res.status).toBe(200);
+      const cacheControl = res.headers.get("cache-control");
+      expect(cacheControl).toContain("public");
+      expect(cacheControl).toContain("s-maxage=300");
+      expect(cacheControl).toContain("stale-while-revalidate=600");
+    });
+
+    it("should return Edge Cache headers on GET /api/jobs/popular-stacks", async () => {
+      const res = await fetch(`${baseUrl}/api/jobs/popular-stacks`);
+      expect(res.status).toBe(200);
+      const cacheControl = res.headers.get("cache-control");
+      expect(cacheControl).toContain("public");
+      expect(cacheControl).toContain("s-maxage=600");
+      expect(cacheControl).toContain("stale-while-revalidate=1200");
+    });
+
+    it("should return Edge Cache headers on GET /api/companies", async () => {
+      const res = await fetch(`${baseUrl}/api/companies`);
+      expect(res.status).toBe(200);
+      const cacheControl = res.headers.get("cache-control");
+      expect(cacheControl).toContain("public");
+      expect(cacheControl).toContain("s-maxage=1800");
+      expect(cacheControl).toContain("stale-while-revalidate=3600");
+      expect(res.headers.get("vary")).toContain("x-trust-token");
+    });
+
+    it("should return Edge Cache headers on GET /api/company-suggestions", async () => {
+      const res = await fetch(`${baseUrl}/api/company-suggestions`);
+      expect(res.status).toBe(200);
+      const cacheControl = res.headers.get("cache-control");
+      expect(cacheControl).toContain("public");
+      expect(cacheControl).toContain("s-maxage=60");
+      expect(cacheControl).toContain("stale-while-revalidate=180");
+    });
+
+    it("should return Edge Cache headers on GET /api/jobs when authorized", async () => {
+      const authRes = await fetch(`${baseUrl}/api/auth/verify-trust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "ApenasGabs" }),
+      });
+      const { trustToken } = (await authRes.json()) as { trustToken: string };
+
+      const res = await fetch(`${baseUrl}/api/jobs?page=1&pageSize=2`, {
+        headers: {
+          "x-trust-token": trustToken,
+          "x-enforce-trust": "true",
+        },
+      });
+      expect(res.status).toBe(200);
+      const cacheControl = res.headers.get("cache-control");
+      expect(cacheControl).toContain("public");
+      expect(cacheControl).toContain("s-maxage=60");
+      expect(cacheControl).toContain("stale-while-revalidate=180");
+      expect(res.headers.get("vary")).toContain("x-trust-token");
     });
   });
 });

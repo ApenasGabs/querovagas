@@ -305,6 +305,7 @@ const handleJobsParser = async (req: Request, res: Response): Promise<void> => {
   const isTestBypass = process.env.NODE_ENV === "test" && !req.headers["x-enforce-trust"];
 
   if (!trustCheck.valid && !isTestBypass) {
+    res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
     res.json({
       jobs: [],
       total: 0,
@@ -421,6 +422,10 @@ const handleJobsParser = async (req: Request, res: Response): Promise<void> => {
     const total = count || jobs.length;
     const totalPages = Math.ceil(total / numPageSize) || 1;
 
+    if (req.method === "GET") {
+      res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=180");
+      res.setHeader("Vary", "x-trust-token, Accept-Encoding");
+    }
     res.json({
       jobs,
       total,
@@ -447,6 +452,7 @@ app.get("/jobs/stats", async (_req: Request, res: Response) => {
       typeof rpcStats === "object" &&
       typeof (rpcStats as Record<string, unknown>).totalJobs === "number"
     ) {
+      res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
       res.json(rpcStats);
       return;
     }
@@ -483,6 +489,7 @@ app.get("/jobs/stats", async (_req: Request, res: Response) => {
       bySource[src] = (bySource[src] || 0) + 1;
     }
 
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
     res.json({
       totalJobs: allRows.length,
       byModel,
@@ -491,6 +498,7 @@ app.get("/jobs/stats", async (_req: Request, res: Response) => {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao carregar estatísticas";
+    res.setHeader("Cache-Control", "no-store");
     res.status(500).json({ error: msg });
   }
 });
@@ -501,6 +509,7 @@ app.get("/jobs/popular-stacks", async (_req: Request, res: Response) => {
       limit_count: 15,
     });
     if (!rpcError && Array.isArray(rpcStacks) && rpcStacks.length > 0) {
+      res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=1200");
       res.json(
         rpcStacks.filter((s): s is string => typeof s === "string" && s.trim().length > 0),
       );
@@ -514,6 +523,7 @@ app.get("/jobs/popular-stacks", async (_req: Request, res: Response) => {
       .limit(1000);
 
     if (error || !data) {
+      res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=120");
       res.json([]);
       return;
     }
@@ -535,9 +545,11 @@ app.get("/jobs/popular-stacks", async (_req: Request, res: Response) => {
       .map(([name]) => name)
       .slice(0, 15);
 
+    res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=1200");
     res.json(topStacks);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao carregar stacks populares";
+    res.setHeader("Cache-Control", "no-store");
     res.status(500).json({ error: msg });
   }
 });
@@ -548,6 +560,7 @@ app.get("/jobs/:id", async (req: Request, res: Response) => {
   const isTestBypass = process.env.NODE_ENV === "test" && !req.headers["x-enforce-trust"];
 
   if (!trustCheck.valid && !isTestBypass) {
+    res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
     res.status(404).json({ error: "Vaga não encontrada" });
     return;
   }
@@ -560,11 +573,14 @@ app.get("/jobs/:id", async (req: Request, res: Response) => {
       .single();
 
     if (error || !data) {
+      res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
       res.status(404).json({ error: "Vaga não encontrada" });
       return;
     }
 
     const row = data as Record<string, unknown>;
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
+    res.setHeader("Vary", "x-trust-token, Accept-Encoding");
     res.json({
       id: row.id,
       title: row.title,
@@ -583,6 +599,7 @@ app.get("/jobs/:id", async (req: Request, res: Response) => {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao buscar vaga";
+    res.setHeader("Cache-Control", "no-store");
     res.status(500).json({ error: msg });
   }
 });
@@ -13241,6 +13258,8 @@ app.get("/companies", async (req: Request, res: Response) => {
       }));
     }
 
+    res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=3600");
+    res.setHeader("Vary", "x-trust-token, Accept-Encoding");
     res.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao carregar radar de empresas";
@@ -13416,6 +13435,7 @@ app.get("/company-suggestions", async (_req: Request, res: Response) => {
 
     const suggestions = Array.from(mergedMap.values());
     suggestions.sort((a, b) => (b.votesCount || 0) - (a.votesCount || 0));
+    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=180");
     res.json(suggestions);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao carregar sugestões";
