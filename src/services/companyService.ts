@@ -86,23 +86,33 @@ export class CompanyService {
       if (supabaseUrl && supabaseKey) {
         const { createClient } = await import("@supabase/supabase-js");
         const client = createClient(supabaseUrl, supabaseKey);
-        let query = client
-          .from("companies")
-          .select("id, name, slug, ats, career_url, status, active_jobs_count, has_tech_jobs")
-          .order("name", { ascending: true });
 
-        if (params.search) {
-          query = query.ilike("name", `%${params.search}%`);
-        }
-        if (params.ats && params.ats !== "ALL") {
-          query = query.eq("ats", params.ats.toUpperCase());
-        }
-        if (params.status && params.status !== "ALL") {
-          query = query.eq("status", params.status);
-        }
+        const allCompanies: Company[] = [];
+        let offset = 0;
+        const pageSize = 1000;
 
-        const { data, error } = await query;
-        if (!error && Array.isArray(data) && data.length > 0) {
+        while (true) {
+          let query = client
+            .from("companies")
+            .select("id, name, slug, ats, career_url, status, active_jobs_count, has_tech_jobs")
+            .order("name", { ascending: true })
+            .range(offset, offset + pageSize - 1);
+
+          if (params.search) {
+            query = query.ilike("name", `%${params.search}%`);
+          }
+          if (params.ats && params.ats !== "ALL") {
+            query = query.eq("ats", params.ats.toUpperCase());
+          }
+          if (params.status && params.status !== "ALL") {
+            query = query.eq("status", params.status);
+          }
+
+          const { data, error } = await query;
+          if (error || !Array.isArray(data) || data.length === 0) {
+            break;
+          }
+
           const mapped: Company[] = data.map((r: Record<string, unknown>) => ({
             id: r.id as string,
             name: r.name as string,
@@ -113,7 +123,16 @@ export class CompanyService {
             activeJobsCount: (r.active_jobs_count as number) || 0,
             hasTechJobs: (r.has_tech_jobs as boolean) ?? true,
           }));
-          return this.enrichWithLocalVotes(mapped);
+
+          allCompanies.push(...mapped);
+          if (data.length < pageSize) {
+            break;
+          }
+          offset += pageSize;
+        }
+
+        if (allCompanies.length > 0) {
+          return this.enrichWithLocalVotes(allCompanies);
         }
       }
     } catch {
