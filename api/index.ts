@@ -291,6 +291,7 @@ const handleJobsParser = async (req: Request, res: Response): Promise<void> => {
     workModel = "ALL",
     location = "ALL",
     source = "ALL",
+    stack = "",
     page = 1,
     pageSize = 12,
   } = params;
@@ -380,6 +381,10 @@ const handleJobsParser = async (req: Request, res: Response): Promise<void> => {
 
   if (source && source !== "ALL") {
     query = query.eq("source", String(source));
+  }
+
+  if (typeof stack === "string" && stack.trim() && stack !== "ALL") {
+    query = query.contains("stack", [stack.trim()]);
   }
 
   const from = (numPage - 1) * numPageSize;
@@ -486,6 +491,53 @@ app.get("/jobs/stats", async (_req: Request, res: Response) => {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao carregar estatísticas";
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.get("/jobs/popular-stacks", async (_req: Request, res: Response) => {
+  try {
+    const { data: rpcStacks, error: rpcError } = await supabase.rpc("get_popular_stacks", {
+      limit_count: 15,
+    });
+    if (!rpcError && Array.isArray(rpcStacks) && rpcStacks.length > 0) {
+      res.json(
+        rpcStacks.filter((s): s is string => typeof s === "string" && s.trim().length > 0),
+      );
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("stack")
+      .eq("is_tech", true)
+      .limit(1000);
+
+    if (error || !data) {
+      res.json([]);
+      return;
+    }
+
+    const counts = new Map<string, number>();
+    for (const row of data as Array<{ stack?: unknown }>) {
+      if (Array.isArray(row.stack)) {
+        for (const item of row.stack) {
+          if (typeof item === "string" && item.trim()) {
+            const normalized = item.trim();
+            counts.set(normalized, (counts.get(normalized) || 0) + 1);
+          }
+        }
+      }
+    }
+
+    const topStacks = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name)
+      .slice(0, 15);
+
+    res.json(topStacks);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Erro ao carregar stacks populares";
     res.status(500).json({ error: msg });
   }
 });
@@ -6833,16 +6885,38 @@ app.get("/companies", async (req: Request, res: Response) => {
     // 3. Busca contagem de vagas ativas no Supabase para atualizar a quantidade por empresa
     const companyJobCounts: Record<string, { count: number; source: string; sampleUrl: string }> = {};
     try {
-      const { data } = await supabase.from("jobs").select("company, source, url").limit(2000);
-      if (data && Array.isArray(data)) {
-        for (const row of data) {
-          const compName = (row.company || "").trim();
+      const { data: rpcCounts, error: rpcErr } = await supabase.rpc("get_company_active_counts");
+      if (!rpcErr && Array.isArray(rpcCounts) && rpcCounts.length > 0) {
+        for (const row of rpcCounts as Array<Record<string, unknown>>) {
+          const compName = String(row.company || "").trim();
           if (!compName) continue;
           const key = compName.toLowerCase();
-          if (!companyJobCounts[key]) {
-            companyJobCounts[key] = { count: 0, source: row.source || "OUTRO", sampleUrl: row.url || "" };
+          companyJobCounts[key] = {
+            count: Number(row.active_count || row.count || 0),
+            source: String(row.source || "OUTRO"),
+            sampleUrl: String(row.sample_url || row.sampleUrl || ""),
+          };
+        }
+      } else {
+        const { data } = await supabase
+          .from("jobs")
+          .select("company, source, url")
+          .eq("is_tech", true)
+          .limit(2000);
+        if (data && Array.isArray(data)) {
+          for (const row of data) {
+            const compName = (row.company || "").trim();
+            if (!compName) continue;
+            const key = compName.toLowerCase();
+            if (!companyJobCounts[key]) {
+              companyJobCounts[key] = {
+                count: 0,
+                source: row.source || "OUTRO",
+                sampleUrl: row.url || "",
+              };
+            }
+            companyJobCounts[key].count++;
           }
-          companyJobCounts[key].count++;
         }
       }
     } catch {
@@ -6951,7 +7025,21 @@ app.get("/companies", async (req: Request, res: Response) => {
   }
 });
 
-// POST /company-suggestions - Cria nova sugestão comunitária
+const mapDbSuggestionRow = (s: Record<string, unknown>): CompanyRecord => ({
+  id: s.id as string,
+  name: s.name as string,
+  slug: s.slug as string,
+  ats: (s.ats as string) || "OUTRO",
+  careerUrl: s.career_url as string,
+  status: ((s.status as CompanyRecord["status"]) || "SUGGESTED"),
+  activeJobsCount: 0,
+  suggestedBy: (s.suggested_by as string) || "Membro da Comunidade",
+  votesCount: Number(s.votes_count) || 1,
+  notes: (s.notes as string) || undefined,
+  createdAt: (s.created_at as string) || new Date().toISOString(),
+});
+
+// POST /company-suggestions - Cria nova sugestão comunitária diretamente no Supabase
 app.post("/company-suggestions", async (req: Request, res: Response) => {
   try {
     const { name, careerUrl, ats = "OUTRO", notes, suggestedBy } = req.body || {};
@@ -6972,15 +7060,54 @@ app.post("/company-suggestions", async (req: Request, res: Response) => {
       .replace(/[^a-z0-9]/g, "-")
       .replace(/-+/g, "-");
 
+    // 1. Verifica se já existe no Supabase (public.company_suggestions)
+    try {
+      const { data: existingRows, error: findErr } = await supabase
+        .from("company_suggestions")
+        .select("*")
+        .or(`slug.eq.${slug},career_url.ilike.${trimmedUrl}`)
+        .limit(1);
+
+      if (!findErr && Array.isArray(existingRows) && existingRows.length > 0) {
+        const existingRow = existingRows[0] as Record<string, unknown>;
+        const nextVotes = (Number(existingRow.votes_count) || 1) + 1;
+        const { data: updatedRow, error: updateErr } = await supabase
+          .from("company_suggestions")
+          .update({ votes_count: nextVotes })
+          .eq("id", existingRow.id as string)
+          .select("*")
+          .single();
+
+        const mapped = mapDbSuggestionRow(
+          (!updateErr && updatedRow ? (updatedRow as Record<string, unknown>) : {
+            ...existingRow,
+            votes_count: nextVotes,
+          }),
+        );
+
+        const fallbackList = readSuggestions();
+        const idx = fallbackList.findIndex((s) => s.id === mapped.id || s.slug === mapped.slug);
+        if (idx >= 0) fallbackList[idx] = mapped;
+        else fallbackList.unshift(mapped);
+        writeSuggestions(fallbackList);
+
+        res.status(200).json(mapped);
+        return;
+      }
+    } catch {
+      // Continua para verificação em fallback caso offline
+    }
+
+    // 2. Fallback para cache local caso a tabela ainda não esteja disponível no Supabase
     const suggestions = readSuggestions();
-    const existing = suggestions.find(
+    const existingLocal = suggestions.find(
       (s) => s.slug === slug || (s.careerUrl && s.careerUrl.toLowerCase() === trimmedUrl.toLowerCase()),
     );
 
-    if (existing) {
-      existing.votesCount = (existing.votesCount || 1) + 1;
+    if (existingLocal) {
+      existingLocal.votesCount = (existingLocal.votesCount || 1) + 1;
       writeSuggestions(suggestions);
-      res.status(200).json(existing);
+      res.status(200).json(existingLocal);
       return;
     }
 
@@ -6998,27 +7125,38 @@ app.post("/company-suggestions", async (req: Request, res: Response) => {
       createdAt: new Date().toISOString(),
     };
 
-    suggestions.unshift(newSuggestion);
-    writeSuggestions(suggestions);
-
-    // Persiste também no Supabase de forma resiliente
+    // 3. Persiste diretamente na tabela public.company_suggestions do Supabase
     try {
-      await supabase.from("company_suggestions").insert({
-        id: newSuggestion.id,
-        name: newSuggestion.name,
-        slug: newSuggestion.slug,
-        ats: newSuggestion.ats,
-        career_url: newSuggestion.careerUrl,
-        status: newSuggestion.status,
-        votes_count: newSuggestion.votesCount || 1,
-        suggested_by: newSuggestion.suggestedBy,
-        notes: newSuggestion.notes || null,
-        created_at: newSuggestion.createdAt,
-      });
+      const { data: insertedRow, error: insertErr } = await supabase
+        .from("company_suggestions")
+        .insert({
+          id: newSuggestion.id,
+          name: newSuggestion.name,
+          slug: newSuggestion.slug,
+          ats: newSuggestion.ats,
+          career_url: newSuggestion.careerUrl,
+          status: newSuggestion.status,
+          votes_count: newSuggestion.votesCount || 1,
+          suggested_by: newSuggestion.suggestedBy,
+          notes: newSuggestion.notes || null,
+          created_at: newSuggestion.createdAt,
+        })
+        .select("*")
+        .single();
+
+      if (!insertErr && insertedRow) {
+        const persisted = mapDbSuggestionRow(insertedRow as Record<string, unknown>);
+        suggestions.unshift(persisted);
+        writeSuggestions(suggestions);
+        res.status(201).json(persisted);
+        return;
+      }
     } catch {
-      // Ignora erro em caso de offline
+      // Ignora erro em caso de offline e mantém fallback resiliente
     }
 
+    suggestions.unshift(newSuggestion);
+    writeSuggestions(suggestions);
     res.status(201).json(newSuggestion);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao registrar sugestão";
@@ -7026,10 +7164,34 @@ app.post("/company-suggestions", async (req: Request, res: Response) => {
   }
 });
 
-// GET /company-suggestions - Lista apenas sugestões comunitárias
-app.get("/company-suggestions", (_req: Request, res: Response) => {
+// GET /company-suggestions - Lista sugestões comunitárias diretamente do Supabase com fallback
+app.get("/company-suggestions", async (_req: Request, res: Response) => {
   try {
-    const suggestions = readSuggestions();
+    let dbSuggestions: CompanyRecord[] = [];
+    try {
+      const { data: sugRows, error: sugErr } = await supabase
+        .from("company_suggestions")
+        .select("*")
+        .order("votes_count", { ascending: false });
+
+      if (!sugErr && Array.isArray(sugRows)) {
+        dbSuggestions = sugRows.map((row) => mapDbSuggestionRow(row as Record<string, unknown>));
+      }
+    } catch {
+      // Fallback para cache local caso offline
+    }
+
+    const mergedMap = new Map<string, CompanyRecord>();
+    for (const item of dbSuggestions) {
+      mergedMap.set(item.id, item);
+    }
+    for (const localItem of readSuggestions()) {
+      if (!mergedMap.has(localItem.id)) {
+        mergedMap.set(localItem.id, localItem);
+      }
+    }
+
+    const suggestions = Array.from(mergedMap.values());
     suggestions.sort((a, b) => (b.votesCount || 0) - (a.votesCount || 0));
     res.json(suggestions);
   } catch (err: unknown) {
@@ -7038,10 +7200,42 @@ app.get("/company-suggestions", (_req: Request, res: Response) => {
   }
 });
 
-// POST /company-suggestions/:id/upvote - Apoiar sugestão com voto comunitário
+// POST /company-suggestions/:id/upvote - Apoiar sugestão com voto comunitário persistido no Supabase
 app.post("/company-suggestions/:id/upvote", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // 1. Tenta localizar e atualizar diretamente no Supabase
+    try {
+      const { data: existingRow, error: findErr } = await supabase
+        .from("company_suggestions")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (!findErr && existingRow) {
+        const rowObj = existingRow as Record<string, unknown>;
+        const nextVotes = (Number(rowObj.votes_count) || 1) + 1;
+        await supabase
+          .from("company_suggestions")
+          .update({ votes_count: nextVotes })
+          .eq("id", id);
+
+        const suggestions = readSuggestions();
+        const localTarget = suggestions.find((s) => s.id === id);
+        if (localTarget) {
+          localTarget.votesCount = nextVotes;
+          writeSuggestions(suggestions);
+        }
+
+        res.json({ id, votesCount: nextVotes });
+        return;
+      }
+    } catch {
+      // Continua para fallback se Supabase estiver inacessível
+    }
+
+    // 2. Fallback para cache em memória
     const suggestions = readSuggestions();
     const target = suggestions.find((s) => s.id === id);
 
@@ -7052,16 +7246,6 @@ app.post("/company-suggestions/:id/upvote", async (req: Request, res: Response) 
 
     target.votesCount = (target.votesCount || 1) + 1;
     writeSuggestions(suggestions);
-
-    // Sincroniza upvote no Supabase
-    try {
-      await supabase
-        .from("company_suggestions")
-        .update({ votes_count: target.votesCount })
-        .eq("id", id);
-    } catch {
-      // Ignora erro
-    }
 
     res.json({ id: target.id, votesCount: target.votesCount });
   } catch (err: unknown) {

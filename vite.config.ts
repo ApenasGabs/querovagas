@@ -36,7 +36,7 @@ export default defineConfig(({ mode }) => {
           },
         },
         "/api": {
-          target: "http://127.0.0.1:3001",
+          target: "http://127.0.0.1:3005",
           changeOrigin: true,
         },
       },
@@ -66,8 +66,34 @@ export default defineConfig(({ mode }) => {
           },
         },
         "/api": {
-          target: "http://127.0.0.1:3001",
+          target: "http://127.0.0.1:3005",
           changeOrigin: true,
+        },
+      },
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes("src/data/monitoredCompanies")) {
+              return "monitored-companies";
+            }
+            if (id.includes("node_modules")) {
+              if (id.includes("@supabase/supabase-js")) {
+                return "supabase-vendor";
+              }
+              if (id.includes("posthog-js")) {
+                return "analytics-vendor";
+              }
+              if (id.includes("lucide-react")) {
+                return "icons-vendor";
+              }
+              if (id.includes("react") || id.includes("react-dom")) {
+                return "react-vendor";
+              }
+            }
+            return undefined;
+          },
         },
       },
     },
