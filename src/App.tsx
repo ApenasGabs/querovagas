@@ -3,6 +3,7 @@ import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
+  Globe,
   MessageSquare,
   Radar,
   Sparkles,
@@ -291,6 +292,16 @@ export default function App(): ReactElement {
                   <Button variant="primary" size="sm" onClick={clearFilters}>
                     Limpar todos os filtros
                   </Button>
+                  {location !== "ALL" && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline gap-1.5"
+                      onClick={() => setLocation("ALL")}
+                    >
+                      <Globe className="w-4 h-4" />
+                      <span>Buscar em todas as localidades</span>
+                    </button>
+                  )}
                   {search.trim() && (
                     <button
                       type="button"
