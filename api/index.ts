@@ -280,6 +280,40 @@ async function checkDeveloperReputation(
 }
 
 // -------------------------------------------------------------
+// 0.9 IN-MEMORY TTL CACHE (REDUÇÃO DE EGRESS & QUERIES REPETIDAS)
+// -------------------------------------------------------------
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const apiMemoryCache = new Map<string, CacheEntry<unknown>>();
+const MAX_CACHE_ENTRIES = 250;
+
+function getCached<T>(key: string): T | null {
+  if (process.env.NODE_ENV === "test") return null;
+  const entry = apiMemoryCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    apiMemoryCache.delete(key);
+    return null;
+  }
+  return entry.data as T;
+}
+
+function setCached<T>(key: string, data: T, ttlMs: number): void {
+  if (process.env.NODE_ENV === "test") return;
+  if (apiMemoryCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = apiMemoryCache.keys().next().value;
+    if (oldestKey) apiMemoryCache.delete(oldestKey);
+  }
+  apiMemoryCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+
+const JOB_LIST_COLUMNS =
+  "id,title,company,location,work_model,salary,contract_type,seniority_level,url,source,stack,scraped_at,is_tech";
+
+// -------------------------------------------------------------
 // 1. PARSER ENDPOINT: POST /jobs (e GET /jobs)
 // Recebe payload limpo do frontend e monta a query para o backend escondido
 // -------------------------------------------------------------
@@ -297,7 +331,7 @@ const handleJobsParser = async (req: Request, res: Response): Promise<void> => {
   } = params;
 
   const numPage = Number(page) || 1;
-  const numPageSize = Number(pageSize) || 12;
+  const numPageSize = Math.min(Math.max(Number(pageSize) || 12, 1), 50);
 
   // Interceptador de Proteção: Validação de Membro Verificado
   const trustHeader = (req.headers["x-trust-token"] || req.query.trust_token || params.trustToken) as string | undefined;
@@ -316,9 +350,20 @@ const handleJobsParser = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  const cacheKey = `jobs:${String(search).trim().toLowerCase()}:${seniority}:${workModel}:${location}:${source}:${stack}:${numPage}:${numPageSize}`;
+  const cachedPage = getCached<Record<string, unknown>>(cacheKey);
+  if (cachedPage) {
+    if (req.method === "GET") {
+      res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=180");
+      res.setHeader("Vary", "x-trust-token, Accept-Encoding");
+    }
+    res.json(cachedPage);
+    return;
+  }
+
   let query = supabase
     .from("jobs")
-    .select("*", { count: "exact" })
+    .select(JOB_LIST_COLUMNS, { count: "exact" })
     .eq("is_tech", true);
 
   if (typeof search === "string" && search.trim()) {
@@ -422,17 +467,20 @@ const handleJobsParser = async (req: Request, res: Response): Promise<void> => {
     const total = count || jobs.length;
     const totalPages = Math.ceil(total / numPageSize) || 1;
 
-    if (req.method === "GET") {
-      res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=180");
-      res.setHeader("Vary", "x-trust-token, Accept-Encoding");
-    }
-    res.json({
+    const payload = {
       jobs,
       total,
       page: numPage,
       pageSize: numPageSize,
       totalPages,
-    });
+    };
+    setCached(cacheKey, payload, 60_000);
+
+    if (req.method === "GET") {
+      res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=180");
+      res.setHeader("Vary", "x-trust-token, Accept-Encoding");
+    }
+    res.json(payload);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Erro ao consultar vagas";
     res.status(500).json({ error: msg });
@@ -444,6 +492,13 @@ app.get("/jobs", handleJobsParser);
 
 app.get("/jobs/stats", async (_req: Request, res: Response) => {
   try {
+    const cachedStats = getCached<Record<string, unknown>>("jobs:stats");
+    if (cachedStats) {
+      res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
+      res.json(cachedStats);
+      return;
+    }
+
     // 1. Tenta carregar as métricas agregadas completas via RPC no banco
     const { data: rpcStats, error: rpcError } = await supabase.rpc("get_job_stats");
     if (
@@ -452,6 +507,7 @@ app.get("/jobs/stats", async (_req: Request, res: Response) => {
       typeof rpcStats === "object" &&
       typeof (rpcStats as Record<string, unknown>).totalJobs === "number"
     ) {
+      setCached("jobs:stats", rpcStats, 300_000);
       res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
       res.json(rpcStats);
       return;
@@ -13054,7 +13110,7 @@ app.get("/companies", async (req: Request, res: Response) => {
     const { search = "", ats = "ALL", status = "ALL" } = req.query;
 
     // 1. Busca empresas cadastradas diretamente na tabela public.companies no Supabase
-    let dbCompanies: CompanyRecord[] = [];
+    const dbCompanies: CompanyRecord[] = [];
     try {
       let offset = 0;
       const pageSize = 1000;

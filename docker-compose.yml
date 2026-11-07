@@ -1,0 +1,40 @@
+name: querovagas
+
+services:
+  querovagas:
+    container_name: querovagas
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: querovagas:latest
+    restart: unless-stopped
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=production
+      - PORT=3006
+    env_file:
+      - .env
+    volumes:
+      - /DATA/AppData/querovagas:/app/data
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: querovagas
+  description:
+    en_us: Aggregated Tech Jobs Platform with Developer Trust Gateway and Smart Filtering.
+    pt_br: Plataforma agregadora de vagas de tecnologia com gateway de reputação e busca otimizada.
+  tagline:
+    en_us: Tech Jobs Aggregator
+    pt_br: Agregador de Vagas Tech
+  developer: Gabriel Rodrigues
+  author: Kraken
+  icon: https://cdn-icons-png.flaticon.com/512/2910/2910791.png
+  thumbnail: https://cdn-icons-png.flaticon.com/512/2910/2910791.png
+  title:
+    en_us: QueroVagas
+    pt_br: QueroVagas
+  category: Utilities
+  port_map: "3006"
