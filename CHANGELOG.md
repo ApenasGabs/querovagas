@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.11.0](https://github.com/ApenasGabs/querovagas/compare/v1.10.3...v1.11.0) (2026-11-15)
+
+### ✨ Features
+
+* **infra,perf:** containerizar para Homelab e otimizar tráfego da API (Refs [#29](https://github.com/ApenasGabs/querovagas/issues/29)) ([#30](https://github.com/ApenasGabs/querovagas/issues/30)) ([d8f7f33](https://github.com/ApenasGabs/querovagas/commit/d8f7f335eb068b141f78c89c1a792ff9d99f38d2))
+
 ## [1.10.3](https://github.com/ApenasGabs/querovagas/compare/v1.10.2...v1.10.3) (2026-11-04)
 
 ### 🐛 Bug Fixes
