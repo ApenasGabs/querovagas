@@ -123,17 +123,6 @@ export function useJobs(pageSize = 12, enabled = true): UseJobsReturn {
       setJobs(result.jobs);
       setTotal(result.total);
       setTotalPages(result.totalPages);
-
-      // Carrega stats e stacks populares na primeira carga
-      if (!stats) {
-        const statsData = await dataSource.getStats();
-        setStats(statsData);
-      }
-
-      if (popularStacks.length === 0 && dataSource.getPopularStacks) {
-        const stacks = await dataSource.getPopularStacks();
-        setPopularStacks(stacks);
-      }
     } catch (err: unknown) {
       console.error("[useJobs] Erro ao carregar vagas:", err);
       const errorMessage =
@@ -151,9 +140,42 @@ export function useJobs(pageSize = 12, enabled = true): UseJobsReturn {
     stack,
     page,
     pageSize,
-    stats,
-    popularStacks.length,
   ]);
+
+  // Carrega stats e stacks populares apenas uma vez quando habilitado
+  const metadataLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!enabled || metadataLoadedRef.current) return;
+    metadataLoadedRef.current = true;
+    const dataSource = getJobDataSource();
+    void dataSource
+      .getStats()
+      .then((statsData) => setStats(statsData))
+      .catch((err) => console.warn("[useJobs] Falha ao carregar stats:", err));
+
+    if (dataSource.getPopularStacks) {
+      void dataSource
+        .getPopularStacks()
+        .then((stacks) => setPopularStacks(stacks))
+        .catch((err) => console.warn("[useJobs] Falha ao carregar stacks:", err));
+    }
+  }, [enabled]);
+
+  // Hidrata a descrição completa sob demanda apenas ao abrir o modal da vaga
+  const handleSelectJob = useCallback((job: Job | null) => {
+    setSelectedJob(job);
+    if (job && !job.description) {
+      const dataSource = getJobDataSource();
+      void dataSource
+        .getJobById(job.id)
+        .then((fullJob) => {
+          if (fullJob) {
+            setSelectedJob((current) => (current?.id === job.id ? fullJob : current));
+          }
+        })
+        .catch((err) => console.warn("[useJobs] Falha ao carregar detalhes da vaga:", err));
+    }
+  }, []);
 
   // Sincroniza estado de loading se enabled for desativado sem cascading renders
   const [prevEnabled, setPrevEnabled] = useState(enabled);
@@ -192,7 +214,7 @@ export function useJobs(pageSize = 12, enabled = true): UseJobsReturn {
     setLocation: handleLocationChange,
     setStack: handleStackChange,
     setPage,
-    selectJob: setSelectedJob,
+    selectJob: handleSelectJob,
     clearFilters,
     refresh: fetchJobs,
   };

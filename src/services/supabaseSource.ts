@@ -137,7 +137,10 @@ export class SupabaseJobDataSource implements IJobDataSource {
 
     let query = client
       .from(this.tableName)
-      .select("*", { count: "exact" })
+      .select(
+        "id,title,company,location,work_model,salary,contract_type,seniority_level,url,source,stack,scraped_at,is_tech",
+        { count: "exact" },
+      )
       .eq("is_tech", true);
 
     if (search.trim()) {
