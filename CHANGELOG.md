@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.12.0](https://github.com/ApenasGabs/querovagas/compare/v1.11.0...v1.12.0) (2026-11-20)
+
+### ✨ Features
+
+* **donation:** apoiar o projeto com Pix via LivePix ([#32](https://github.com/ApenasGabs/querovagas/issues/32)) ([#33](https://github.com/ApenasGabs/querovagas/issues/33)) ([680f9b6](https://github.com/ApenasGabs/querovagas/commit/680f9b680ac8bd6418d79b94b70bcfab085858c4))
+
 ## [1.11.0](https://github.com/ApenasGabs/querovagas/compare/v1.10.3...v1.11.0) (2026-11-15)
 
 ### ✨ Features
