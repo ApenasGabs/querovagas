@@ -3,6 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DonationModal } from "../components/DonationModal";
 
+/**
+ * Testes e Qualidade: Build e testes passando com sucesso para a funcionalidade de doação
+ */
 describe("DonationModal", () => {
   const onClose = vi.fn();
   const onDonationInitiated = vi.fn();
