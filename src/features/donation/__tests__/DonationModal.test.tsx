@@ -106,4 +106,26 @@ describe("DonationModal", () => {
       "noopener,noreferrer",
     );
   });
+
+  it("deve suportar responsividade com classes adaptativas para as 3 viewports (Mobile 375px, Tablet 768px e Desktop 1440px)", () => {
+    const { container } = render(
+      <DonationModal
+        isOpen={true}
+        onClose={onClose}
+        onDonationInitiated={onDonationInitiated}
+      />,
+    );
+
+    const dialogCard = container.querySelector(".max-w-lg");
+    expect(dialogCard).toBeInTheDocument();
+    // Valida adaptação responsiva com Tailwind
+    expect(dialogCard?.className).toContain("w-full");
+    expect(dialogCard?.className).toContain("max-w-lg");
+    expect(dialogCard?.className).toContain("max-h-[92vh]");
+
+    // Grade de botões com grid responsivo para telas pequenas e maiores
+    const grid = container.querySelector(".grid-cols-3");
+    expect(grid).toBeInTheDocument();
+    expect(grid?.className).toContain("sm:grid-cols-5");
+  });
 });

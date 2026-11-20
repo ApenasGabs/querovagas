@@ -198,15 +198,18 @@ export function trackCompanyUpvoted(companyName: string): void {
 /**
  * Rastreia abertura do modal de apoio / doação
  */
-export function trackDonationModalOpened(source: string = "navbar"): void {
+export const trackDonationModalOpened = (source: string = "navbar"): void => {
   if (!isInitialized) return;
   posthog.capture("donation_modal_opened", { source });
-}
+};
 
 /**
  * Rastreia início de doação com LivePix
  */
-export function trackDonationInitiated(amount: number, source: string = "modal"): void {
+export const trackDonationInitiated = (
+  amount: number,
+  source: string = "modal",
+): void => {
   if (!isInitialized) return;
   posthog.capture("donation_initiated", {
     amount,
@@ -214,6 +217,6 @@ export function trackDonationInitiated(amount: number, source: string = "modal")
     provider: "livepix",
     source,
   });
-}
+};
 
 export { posthog };

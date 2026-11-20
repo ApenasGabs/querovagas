@@ -17,7 +17,7 @@ export interface LivePixDonationOptions {
 /**
  * Valida se uma URL é estritamente do domínio oficial do LivePix
  */
-export function isSafeLivePixUrl(url: string): boolean {
+export const isSafeLivePixUrl = (url: string): boolean => {
   try {
     const parsed = new URL(url);
     return (
@@ -27,30 +27,30 @@ export function isSafeLivePixUrl(url: string): boolean {
   } catch {
     return false;
   }
-}
+};
 
 /**
  * Garante que a URL seja segura antes de redirecionar ou abrir nova aba
  */
-export function assertSafeLivePixUrl(url: string): string {
+export const assertSafeLivePixUrl = (url: string): string => {
   if (!isSafeLivePixUrl(url)) {
     throw new Error(`URL de doação inválida ou insegura: ${url}`);
   }
   return url;
-}
+};
 
 /**
  * Retorna o username efetivo do LivePix configurado no ambiente ou fallback
  */
-export function getLivePixUsername(): string {
+export const getLivePixUsername = (): string => {
   const envUsername = import.meta.env.VITE_LIVEPIX_USERNAME as string | undefined;
   return (envUsername && envUsername.trim()) || DEFAULT_LIVEPIX_USERNAME;
-}
+};
 
 /**
  * Constrói a URL pública de doação do LivePix com parâmetros opcionais de valor e mensagem
  */
-export function buildLivePixDonationUrl(options?: LivePixDonationOptions): string {
+export const buildLivePixDonationUrl = (options?: LivePixDonationOptions): string => {
   const username = options?.username?.trim() || getLivePixUsername();
   const cleanUsername = username.replace(/^@/, "");
 
@@ -65,4 +65,4 @@ export function buildLivePixDonationUrl(options?: LivePixDonationOptions): strin
   }
 
   return assertSafeLivePixUrl(url.toString());
-}
+};

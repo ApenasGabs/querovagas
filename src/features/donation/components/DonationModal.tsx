@@ -19,11 +19,11 @@ export interface DonationModalProps {
   onDonationInitiated?: (amount: number) => void;
 }
 
-export function DonationModal({
+export const DonationModal = ({
   isOpen,
   onClose,
   onDonationInitiated,
-}: DonationModalProps): ReactElement | null {
+}: DonationModalProps): ReactElement | null => {
   const [selectedAmount, setSelectedAmount] = useState<number>(10);
   const [customAmount, setCustomAmount] = useState<string>("");
   const [isCustom, setIsCustom] = useState<boolean>(false);

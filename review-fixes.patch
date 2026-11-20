@@ -1,0 +1,35 @@
+--- a/src/features/donation/components/DonationModal.tsx
++++ b/src/features/donation/components/DonationModal.tsx
+@@ -22,1 +22,1 @@
+-export function DonationModal({
++export function DonationModal({
+--- a/src/features/donation/utils/livepix.ts
++++ b/src/features/donation/utils/livepix.ts
+@@ -20,1 +20,1 @@
+-export function isSafeLivePixUrl(url: string): boolean {
++export const isSafeLivePixUrl = (url: string) =>: boolean {
+--- a/src/features/donation/utils/livepix.ts
++++ b/src/features/donation/utils/livepix.ts
+@@ -35,1 +35,1 @@
+-export function assertSafeLivePixUrl(url: string): string {
++export const assertSafeLivePixUrl = (url: string) =>: string {
+--- a/src/features/donation/utils/livepix.ts
++++ b/src/features/donation/utils/livepix.ts
+@@ -45,1 +45,1 @@
+-export function getLivePixUsername(): string {
++export const getLivePixUsername = () =>: string {
+--- a/src/features/donation/utils/livepix.ts
++++ b/src/features/donation/utils/livepix.ts
+@@ -53,1 +53,1 @@
+-export function buildLivePixDonationUrl(options?: LivePixDonationOptions): string {
++export const buildLivePixDonationUrl = (options?: LivePixDonationOptions) =>: string {
+--- a/src/services/analytics.ts
++++ b/src/services/analytics.ts
+@@ -201,1 +201,1 @@
+-export function trackDonationModalOpened(source: string = "navbar"): void {
++export const trackDonationModalOpened = (source: string = "navbar") =>: void {
+--- a/src/services/analytics.ts
++++ b/src/services/analytics.ts
+@@ -209,1 +209,1 @@
+-export function trackDonationInitiated(amount: number, source: string = "modal"): void {
++export const trackDonationInitiated = (amount: number, source: string = "modal") =>: void {
