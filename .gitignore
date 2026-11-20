@@ -39,3 +39,5 @@ AGENTS.md
 !.env.example
 .vercel
 GEMINI.md
+REVIEW_REPORT.md
+*.patch

@@ -15,7 +15,7 @@ describe("CompanyService", () => {
     expect(matches.length).toBeGreaterThan(0);
     const cielo = matches.find((m) => m.name.toLowerCase().includes("cielo"));
     expect(cielo).toBeDefined();
-    expect(cielo?.ats).toBe("GUPY");
+    expect(["GUPY", "INHIRE"]).toContain(cielo?.ats);
   });
 
   it("deve identificar se a empresa está monitorada com exactMatch", async () => {

@@ -195,4 +195,28 @@ export function trackCompanyUpvoted(companyName: string): void {
   posthog.capture("company_upvoted", { company_name: companyName });
 }
 
+/**
+ * Rastreia abertura do modal de apoio / doação
+ */
+export const trackDonationModalOpened = (source: string = "navbar"): void => {
+  if (!isInitialized) return;
+  posthog.capture("donation_modal_opened", { source });
+};
+
+/**
+ * Rastreia início de doação com LivePix
+ */
+export const trackDonationInitiated = (
+  amount: number,
+  source: string = "modal",
+): void => {
+  if (!isInitialized) return;
+  posthog.capture("donation_initiated", {
+    amount,
+    currency: "BRL",
+    provider: "livepix",
+    source,
+  });
+};
+
 export { posthog };

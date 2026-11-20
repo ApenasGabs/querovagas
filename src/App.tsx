@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Globe,
+  Heart,
   MessageSquare,
   Radar,
   Sparkles,
@@ -34,8 +35,16 @@ const JobModal = lazy(() =>
     default: m.JobModal,
   })),
 );
+
+const DonationModal = lazy(() =>
+  import("./features/donation/components/DonationModal").then((m) => ({
+    default: m.DonationModal,
+  })),
+);
 import {
   trackCompanyRadarOpened,
+  trackDonationInitiated,
+  trackDonationModalOpened,
   trackLoginCompleted,
   trackLoginInitiated,
   trackLogout,
@@ -80,6 +89,7 @@ export default function App(): ReactElement {
 
   const [isCompanyRadarOpen, setIsCompanyRadarOpen] = useState(false);
   const [radarInitialQuery, setRadarInitialQuery] = useState("");
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
 
   // Rastreia visualização de página com status de autenticação
   useEffect(() => {
@@ -110,6 +120,15 @@ export default function App(): ReactElement {
     trackCompanyRadarOpened(source);
     setRadarInitialQuery(search.trim());
     setIsCompanyRadarOpen(true);
+  };
+
+  const handleOpenDonation = (source: string = "navbar") => {
+    trackDonationModalOpened(source);
+    setIsDonationModalOpen(true);
+  };
+
+  const handleDonationInitiated = (amount: number) => {
+    trackDonationInitiated(amount, "modal");
   };
 
   // Recarrega as vagas assim que a autorização de desenvolvedor é concedida
@@ -175,6 +194,16 @@ export default function App(): ReactElement {
             onSignIn={() => handleLogin("navbar")}
             onSignOut={handleLogout}
           />
+
+          {/* Botão de Apoio via LivePix */}
+          <button
+            onClick={() => handleOpenDonation("navbar")}
+            className="btn btn-sm btn-ghost gap-1 sm:gap-1.5 text-error hover:bg-error/10 shrink-0"
+            title="Apoie a infraestrutura do QueroVagas com Pix"
+          >
+            <Heart className="w-4 h-4 fill-error/20" />
+            <span className="text-xs font-semibold hidden sm:inline">Apoiar</span>
+          </button>
 
           <ThemeSelector />
         </div>
@@ -387,7 +416,18 @@ export default function App(): ReactElement {
       )}
 
       {/* Rodapé da Aplicação */}
-      <Footer />
+      <Footer onOpenDonation={() => handleOpenDonation("footer")} />
+
+      {/* Modal de Apoio / Doação via LivePix */}
+      {isDonationModalOpen && (
+        <Suspense fallback={null}>
+          <DonationModal
+            isOpen={isDonationModalOpen}
+            onClose={() => setIsDonationModalOpen(false)}
+            onDonationInitiated={handleDonationInitiated}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
