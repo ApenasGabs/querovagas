@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import {
   Building,
   Check,
@@ -25,6 +25,7 @@ interface JobModalProps {
 export const JobModal = ({ job, onClose }: JobModalProps) => {
   const [copied, setCopied] = useState(false);
   const [isCvMatchOpen, setIsCvMatchOpen] = useState(false);
+  const handleCloseCvMatch = useCallback(() => setIsCvMatchOpen(false), []);
 
   if (!job) return null;
 
@@ -199,7 +200,7 @@ export const JobModal = ({ job, onClose }: JobModalProps) => {
 
       {isCvMatchOpen && (
         <Suspense fallback={null}>
-          <CvMatchModal job={job} onClose={() => setIsCvMatchOpen(false)} />
+          <CvMatchModal job={job} onClose={handleCloseCvMatch} />
         </Suspense>
       )}
     </div>

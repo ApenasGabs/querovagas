@@ -1,6 +1,16 @@
 import type { Job } from "../../../types/job";
 import { getStoredTrustToken } from "../../../services/trustAuthService";
-import type { CvMatchResponse, LlmProviderId, ResumeDraft } from "../types";
+import { isLlmProviderId, type CvMatchResponse, type LlmProviderId, type ResumeDraft } from "../types";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isValidCvMatchResponse = (payload: unknown): payload is CvMatchResponse => {
+  if (!isRecord(payload)) return false;
+  if (!isLlmProviderId(payload.provider) || typeof payload.model !== "string") return false;
+  if (!isRecord(payload.result)) return false;
+  return typeof payload.result.score === "number" && Array.isArray(payload.result.criteria);
+};
 
 export class CvMatchRequestError extends Error {
   status: number;
@@ -76,7 +86,11 @@ export const analyzeCvMatch = async ({
     );
   }
 
-  return payload as CvMatchResponse;
+  if (!isValidCvMatchResponse(payload)) {
+    throw new CvMatchRequestError(502, "invalid_response", "Resposta inesperada do servidor. Tente novamente.");
+  }
+
+  return payload;
 };
 
 const RESUME_DRAFT_KEY = "qv_cv_resume_draft";

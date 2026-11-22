@@ -350,6 +350,12 @@ export class CvMatchError extends Error {
 /** Extrai o primeiro objeto JSON da resposta (tolera cercas ```json e texto ao redor). */
 export const parseLlmJson = (raw: string): unknown => {
   const trimmed = raw.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // tenta extrair de cerca markdown ou recorte {...} abaixo
+  }
+
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fenced ? fenced[1].trim() : trimmed;
 
@@ -370,6 +376,7 @@ export const parseLlmJson = (raw: string): unknown => {
 };
 
 const clampScore = (value: unknown): number | null => {
+  if (typeof value === "string" && !value.trim()) return null;
   const num = typeof value === "string" ? Number(value) : value;
   if (typeof num !== "number" || !Number.isFinite(num)) return null;
   return Math.min(100, Math.max(0, Math.round(num)));

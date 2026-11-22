@@ -43,17 +43,27 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<CvMatchResponse | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("keydown", handleKey);
     return () => {
       window.removeEventListener("keydown", handleKey);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
       abortRef.current?.abort();
     };
-  }, [onClose]);
+  }, []);
 
   const trimmedResume = resumeText.trim();
   const resumeTooShort = trimmedResume.length > 0 && trimmedResume.length < MIN_RESUME_CHARS;
@@ -196,7 +206,7 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
         </div>
 
         {/* Corpo */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-5">
+        <div className="p-5 overflow-y-auto flex-1 space-y-5 min-w-0">
           {phase === "result" && response ? (
             <CvMatchResult
               result={response.result}
@@ -215,13 +225,13 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
               </button>
             </div>
           ) : (
-            <form id="cv-match-form" className="space-y-5" onSubmit={handleSubmit}>
+            <form id="cv-match-form" className="space-y-5 min-w-0" onSubmit={handleSubmit}>
               {/* Currículo */}
-              <fieldset className="space-y-3">
+              <fieldset className="space-y-3 min-w-0">
                 <legend className="text-xs font-bold uppercase tracking-wider text-base-content/60 mb-2">
                   1. Seu currículo
                 </legend>
-                <div role="tablist" className="tabs tabs-box tabs-sm w-fit">
+                <div role="tablist" className="tabs tabs-box tabs-sm w-fit max-w-full">
                   <button
                     type="button"
                     role="tab"
@@ -281,7 +291,7 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
                 )}
 
                 {trimmedResume.length >= MIN_RESUME_CHARS && (
-                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-success/10 text-sm">
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-success/10 text-sm min-w-0">
                     <span className="flex items-center gap-1.5 min-w-0">
                       <FileText className="w-4 h-4 text-success shrink-0" />
                       <span className="truncate">
@@ -289,7 +299,7 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
                         {trimmedResume.length.toLocaleString("pt-BR")} caracteres)
                       </span>
                     </span>
-                    <button type="button" className="btn btn-xs btn-ghost" onClick={handleClearResume}>
+                    <button type="button" className="btn btn-xs btn-ghost shrink-0" onClick={handleClearResume}>
                       Remover
                     </button>
                   </div>
@@ -297,12 +307,12 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
               </fieldset>
 
               {/* Provedor de IA */}
-              <fieldset className="space-y-3">
+              <fieldset className="space-y-3 min-w-0">
                 <legend className="text-xs font-bold uppercase tracking-wider text-base-content/60 mb-2">
                   2. Sua IA (traga sua própria chave)
                 </legend>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
+                <div className="grid gap-3 sm:grid-cols-2 min-w-0">
+                  <div className="space-y-1 min-w-0">
                     <label htmlFor={providerId} className="text-sm font-medium block">
                       Provedor
                     </label>
@@ -321,7 +331,7 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
                       ))}
                     </select>
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1 min-w-0">
                     <label htmlFor={modelId} className="text-sm font-medium block">
                       Modelo
                     </label>
@@ -338,7 +348,7 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
                   </div>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <label htmlFor={apiKeyId} className="text-sm font-medium flex items-center gap-1.5">
                       <KeyRound className="w-3.5 h-3.5" /> Chave de API ({providerOption.label})
@@ -352,11 +362,11 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
                       Gerar chave
                     </a>
                   </div>
-                  <div className="join w-full">
+                  <div className="join w-full min-w-0">
                     <input
                       id={apiKeyId}
                       type={showKey ? "text" : "password"}
-                      className="input input-bordered input-sm join-item w-full font-mono"
+                      className="input input-bordered input-sm join-item w-full min-w-0 font-mono"
                       value={settings.apiKey}
                       placeholder={providerOption.keyHint}
                       onChange={(e) => setApiKey(e.target.value)}

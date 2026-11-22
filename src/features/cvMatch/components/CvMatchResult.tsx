@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactElement } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { AlertTriangle, Check, CheckCircle2, Copy, Lightbulb, PenLine, Target, XCircle } from "lucide-react";
 import type { CvMatchResult as CvMatchResultData, CvMatchTier } from "../types";
 
@@ -24,12 +24,23 @@ interface CvMatchResultProps {
 
 const CopyButton = ({ text }: { text: string }): ReactElement => {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        setCopied(false);
+        timerRef.current = null;
+      }, 2000);
     } catch {
       // clipboard indisponível
     }

@@ -71,8 +71,15 @@ export interface LlmSettings {
 
 export type CvMatchTier = "high" | "good" | "partial" | "low";
 
+export type CriterionKey =
+  | "technicalRequirements"
+  | "seniorityExperience"
+  | "responsibilitiesDomain"
+  | "impactEvidence"
+  | "atsKeywords";
+
 export interface CvMatchCriterionResult {
-  key: string;
+  key: CriterionKey;
   label: string;
   weight: number;
   score: number;

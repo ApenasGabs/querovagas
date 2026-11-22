@@ -114,6 +114,9 @@ describe("cvMatch — validação, prompt, normalização e score", () => {
 
   it("extrai JSON puro, em cerca markdown ou cercado de texto, e falha em resposta inválida", () => {
     expect(parseLlmJson('{"ok":1}')).toEqual({ ok: 1 });
+    expect(parseLlmJson('{"summary":"Exemplo:\\n```ts\\nconst x = 1;\\n```"}')).toEqual({
+      summary: "Exemplo:\n```ts\nconst x = 1;\n```",
+    });
     expect(parseLlmJson("Aqui está:\n```json\n{\"ok\":2}\n```")).toEqual({ ok: 2 });
     expect(parseLlmJson('Texto antes {"ok":3} texto depois')).toEqual({ ok: 3 });
     expect(() => parseLlmJson("sem json algum")).toThrowError(CvMatchError);
@@ -157,10 +160,28 @@ describe("cvMatch — validação, prompt, normalização e score", () => {
     expect(normalized.suggestions[0].section).toBe("Geral");
   });
 
-  it("falha na normalização quando algum critério obrigatório falta", () => {
+  it("falha na normalização quando algum critério obrigatório falta ou vem com score vazio", () => {
     expect(() => normalizeCvMatchResult({ criteria: { technicalRequirements: { score: 80 } } })).toThrowError(
       CvMatchError,
     );
+    expect(() =>
+      normalizeCvMatchResult({
+        ...VALID_RAW_LLM_RESULT,
+        criteria: {
+          ...VALID_RAW_LLM_RESULT.criteria,
+          technicalRequirements: { score: "", justification: "Sem nota" },
+        },
+      }),
+    ).toThrowError(CvMatchError);
+    expect(() =>
+      normalizeCvMatchResult({
+        ...VALID_RAW_LLM_RESULT,
+        criteria: {
+          ...VALID_RAW_LLM_RESULT.criteria,
+          atsKeywords: { score: "   ", justification: "Espaços" },
+        },
+      }),
+    ).toThrowError(CvMatchError);
   });
 
   it("aplica rate limiter em janela deslizante", () => {

@@ -1,4 +1,5 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "../../../types/job";
 import { JobModal } from "../../jobs/components/JobModal";
@@ -69,6 +70,35 @@ describe("cvMatch frontend — utilitários, BYOK storage e modal", () => {
     });
     expect(localStorage.getItem(`${LLM_KEY_STORAGE_KEY}:xai`)).toBeNull();
     expect(result.current.settings.apiKey).toBe("");
+  });
+
+  it("limpa chaves de todos os provedores do localStorage ao desativar rememberKey", () => {
+    const { result } = renderHook(() => useLlmSettings());
+
+    act(() => {
+      result.current.setRememberKey(true);
+    });
+    act(() => {
+      result.current.setApiKey("xai-remembered-123");
+    });
+    act(() => {
+      result.current.setProvider("openai");
+    });
+    act(() => {
+      result.current.setApiKey("sk-openai-remembered-456");
+    });
+
+    expect(localStorage.getItem(`${LLM_KEY_STORAGE_KEY}:xai`)).toBe("xai-remembered-123");
+    expect(localStorage.getItem(`${LLM_KEY_STORAGE_KEY}:openai`)).toBe("sk-openai-remembered-456");
+
+    act(() => {
+      result.current.setRememberKey(false);
+    });
+
+    expect(localStorage.getItem(`${LLM_KEY_STORAGE_KEY}:xai`)).toBeNull();
+    expect(localStorage.getItem(`${LLM_KEY_STORAGE_KEY}:openai`)).toBeNull();
+    expect(sessionStorage.getItem(`${LLM_KEY_STORAGE_KEY}:xai`)).toBe("xai-remembered-123");
+    expect(sessionStorage.getItem(`${LLM_KEY_STORAGE_KEY}:openai`)).toBe("sk-openai-remembered-456");
   });
 
   it("envia análise pelo modal e renderiza resultado completo", async () => {
@@ -146,6 +176,98 @@ describe("cvMatch frontend — utilitários, BYOK storage e modal", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("alert")).toHaveTextContent(/Chave de API recusada/i);
+    });
+  });
+
+  it("não aborta requisição em andamento quando o componente pai re-renderiza com novo onClose", async () => {
+    let resolveFetch!: (res: Response) => void;
+    let capturedSignal: AbortSignal | undefined;
+
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce((_input, init) => {
+      capturedSignal = init?.signal ?? undefined;
+      return new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      });
+    });
+
+    const Wrapper = () => {
+      const [ticks, setTicks] = useState(0);
+      return (
+        <div>
+          <button type="button" onClick={() => setTicks((t) => t + 1)}>
+            Rerender {ticks}
+          </button>
+          <CvMatchModal job={SAMPLE_JOB} onClose={() => {}} />
+        </div>
+      );
+    };
+
+    render(<Wrapper />);
+
+    fireEvent.click(screen.getByRole("tab", { name: /Colar texto/i }));
+    fireEvent.change(screen.getByLabelText(/Cole o texto do currículo/i), { target: { value: VALID_RESUME } });
+    fireEvent.change(screen.getByLabelText(/Chave de API/i), { target: { value: "xai-key-12345" } });
+    fireEvent.click(screen.getByRole("button", { name: /Analisar compatibilidade/i }));
+
+    await waitFor(() => {
+      expect(capturedSignal).toBeDefined();
+    });
+
+    // Força re-render do pai com nova identidade de função onClose
+    fireEvent.click(screen.getByRole("button", { name: /Rerender 0/i }));
+    expect(capturedSignal?.aborted).toBe(false);
+
+    resolveFetch(
+      new Response(
+        JSON.stringify({
+          provider: "xai",
+          model: "grok-4",
+          result: {
+            score: 82,
+            tier: "high",
+            tierLabel: "Alta compatibilidade",
+            criteria: [
+              {
+                key: "technicalRequirements",
+                label: "Requisitos técnicos e stack",
+                weight: 0.35,
+                score: 85,
+                justification: "Bom alinhamento.",
+              },
+            ],
+            matchedSkills: ["React"],
+            missingSkills: [],
+            strengths: ["React"],
+            gaps: [],
+            suggestions: [],
+            rewrittenBullets: [],
+            summary: "Ótima aderência.",
+            verdict: "Aplicar.",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("cv-match-result")).toBeInTheDocument();
+    });
+  });
+
+  it("rejeita resposta HTTP 200 com payload malformado no frontend", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+
+    render(<CvMatchModal job={SAMPLE_JOB} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: /Colar texto/i }));
+    fireEvent.change(screen.getByLabelText(/Cole o texto do currículo/i), { target: { value: VALID_RESUME } });
+    fireEvent.change(screen.getByLabelText(/Chave de API/i), { target: { value: "xai-key-12345" } });
+    fireEvent.click(screen.getByRole("button", { name: /Analisar compatibilidade/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/Resposta inesperada do servidor/i);
     });
   });
 });

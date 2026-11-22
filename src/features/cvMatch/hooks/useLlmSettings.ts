@@ -3,6 +3,7 @@ import {
   DEFAULT_LLM_PROVIDER,
   getProviderOption,
   isLlmProviderId,
+  LLM_PROVIDER_OPTIONS,
   type LlmProviderId,
   type LlmSettings,
 } from "../types";
@@ -124,7 +125,10 @@ export const useLlmSettings = () => {
   const setRememberKey = useCallback(
     (rememberKey: boolean) => {
       persistPrefs({ ...prefs, rememberKey });
-      persistKey(prefs.provider, settings.apiKey, rememberKey);
+      for (const option of LLM_PROVIDER_OPTIONS) {
+        const key = option.id === prefs.provider ? settings.apiKey : readKey(option.id);
+        persistKey(option.id, key, rememberKey);
+      }
       setSettings((s) => ({ ...s, rememberKey }));
     },
     [prefs, settings.apiKey, persistPrefs, persistKey],
