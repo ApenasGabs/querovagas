@@ -1,16 +1,21 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   Building,
   Check,
   ExternalLink,
   MapPin,
   Share2,
+  Sparkles,
   X,
 } from "lucide-react";
 import type { Job } from "../../../types/job";
 import { Badge } from "../../../components/Badge/Badge";
 import { Button } from "../../../components/Button/Button";
 import { trackJobApplyClicked, trackJobShared } from "../../../services/analytics";
+
+const CvMatchModal = lazy(() =>
+  import("../../cvMatch/components/CvMatchModal").then((m) => ({ default: m.CvMatchModal })),
+);
 
 interface JobModalProps {
   job: Job | null;
@@ -19,6 +24,7 @@ interface JobModalProps {
 
 export const JobModal = ({ job, onClose }: JobModalProps) => {
   const [copied, setCopied] = useState(false);
+  const [isCvMatchOpen, setIsCvMatchOpen] = useState(false);
 
   if (!job) return null;
 
@@ -156,10 +162,19 @@ export const JobModal = ({ job, onClose }: JobModalProps) => {
             </Button>
           </div>
 
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="flex flex-wrap items-center gap-3 ml-auto">
             <Button variant="ghost" size="sm" onClick={onClose}>
               Fechar
             </Button>
+            <button
+              type="button"
+              className="btn btn-outline btn-primary btn-sm gap-1.5"
+              onClick={() => setIsCvMatchOpen(true)}
+              title="Analise com IA o quanto seu currículo combina com esta vaga"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Analisar meu currículo</span>
+            </button>
             <a
               href={job.url}
               target="_blank"
@@ -181,6 +196,12 @@ export const JobModal = ({ job, onClose }: JobModalProps) => {
           </div>
         </div>
       </div>
+
+      {isCvMatchOpen && (
+        <Suspense fallback={null}>
+          <CvMatchModal job={job} onClose={() => setIsCvMatchOpen(false)} />
+        </Suspense>
+      )}
     </div>
   );
 };

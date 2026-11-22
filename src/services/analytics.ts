@@ -219,4 +219,55 @@ export const trackDonationInitiated = (
   });
 };
 
+/**
+ * Rastreia início da análise de compatibilidade Currículo × Vaga.
+ * Nunca envia texto do currículo nem a chave de API (apenas metadados).
+ */
+export const trackCvMatchStarted = (props: {
+  jobId: string;
+  provider: string;
+  model: string;
+  inputMethod: "pdf" | "text";
+}): void => {
+  if (!isInitialized) return;
+  posthog.capture("cv_match_started", {
+    job_id: props.jobId,
+    provider: props.provider,
+    model: props.model,
+    input_method: props.inputMethod,
+  });
+};
+
+/**
+ * Rastreia conclusão da análise de compatibilidade com o score obtido
+ */
+export const trackCvMatchCompleted = (props: {
+  jobId: string;
+  provider: string;
+  score: number;
+  tier: string;
+  durationMs: number;
+}): void => {
+  if (!isInitialized) return;
+  posthog.capture("cv_match_completed", {
+    job_id: props.jobId,
+    provider: props.provider,
+    score: props.score,
+    tier: props.tier,
+    duration_ms: props.durationMs,
+  });
+};
+
+/**
+ * Rastreia falhas da análise (validação de arquivo, chave inválida, erro do provedor etc.)
+ */
+export const trackCvMatchFailed = (props: { jobId: string; provider?: string; reason: string }): void => {
+  if (!isInitialized) return;
+  posthog.capture("cv_match_failed", {
+    job_id: props.jobId,
+    provider: props.provider,
+    reason: props.reason,
+  });
+};
+
 export { posthog };
