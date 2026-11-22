@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.13.0](https://github.com/ApenasGabs/querovagas/compare/v1.12.0...v1.13.0) (2026-11-22)
+
+### ✨ Features
+
+* **cv-match:** análise de compatibilidade Currículo × Vaga com IA ([#31](https://github.com/ApenasGabs/querovagas/issues/31)) ([#34](https://github.com/ApenasGabs/querovagas/issues/34)) ([a946020](https://github.com/ApenasGabs/querovagas/commit/a946020944128c8d4e8a106c43bdc6691e316e87))
+
 ## [1.12.0](https://github.com/ApenasGabs/querovagas/compare/v1.11.0...v1.12.0) (2026-11-20)
 
 ### ✨ Features
