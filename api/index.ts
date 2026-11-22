@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import express, { type NextFunction, type Request, type Response } from "express";
+import { createCvMatchHandler } from "./_lib/cvMatch.ts";
 
 const app = express();
 app.disable("x-powered-by");
@@ -16,7 +17,8 @@ const anonKey =
 const supabase = createClient(targetBase, anonKey);
 
 // Parse JSON request bodies for clean API calls
-app.use(express.json());
+// Limite ampliado para comportar texto de currículo + descrição de vaga (análise CV × Vaga)
+app.use(express.json({ limit: "256kb" }));
 
 // CORS & Preflight handling
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -24,7 +26,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, apikey, Prefer, Range, x-client-info, x-trust-token",
+    "Content-Type, Authorization, apikey, Prefer, Range, x-client-info, x-trust-token, x-llm-api-key",
   );
   res.setHeader(
     "Access-Control-Expose-Headers",
@@ -13105,6 +13107,9 @@ const readCatalog = (): CompanyRecord[] => {
 };
 
 // GET /companies - Lista consolidada de empresas monitoradas e sugeridas
+// Análise de compatibilidade Currículo × Vaga com IA (BYOK — chave do usuário, nunca persistida)
+app.post("/cv-match/analyze", createCvMatchHandler({ verifyTrust: verifyTrustToken }));
+
 app.get("/companies", async (req: Request, res: Response) => {
   try {
     const { search = "", ats = "ALL", status = "ALL" } = req.query;
