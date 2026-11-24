@@ -62,9 +62,22 @@ const readKey = (provider: LlmProviderId): string => {
   return safeGet(session, keyStorageName(provider)) ?? safeGet(local, keyStorageName(provider)) ?? "";
 };
 
+/** Modelos padrão descontinuados que devem migrar automaticamente para o novo default do provedor. */
+const DEPRECATED_MODELS_BY_PROVIDER: Partial<Record<LlmProviderId, readonly string[]>> = {
+  groq: ["llama-3.3-70b-versatile"],
+};
+
+const resolveStoredModel = (provider: LlmProviderId, storedModel: string | undefined): string => {
+  const defaultModel = getProviderOption(provider).defaultModel;
+  if (!storedModel) return defaultModel;
+  const deprecated = DEPRECATED_MODELS_BY_PROVIDER[provider];
+  if (deprecated?.includes(storedModel.trim())) return defaultModel;
+  return storedModel;
+};
+
 const buildSettings = (prefs: StoredPrefs): LlmSettings => ({
   provider: prefs.provider,
-  model: prefs.models[prefs.provider] ?? getProviderOption(prefs.provider).defaultModel,
+  model: resolveStoredModel(prefs.provider, prefs.models[prefs.provider]),
   apiKey: readKey(prefs.provider),
   rememberKey: prefs.rememberKey,
 });

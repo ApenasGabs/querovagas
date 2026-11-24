@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "../../../types/job";
 import { JobModal } from "../../jobs/components/JobModal";
 import { CvMatchModal } from "../components/CvMatchModal";
-import { LLM_KEY_STORAGE_KEY, useLlmSettings } from "../hooks/useLlmSettings";
+import { LLM_KEY_STORAGE_KEY, LLM_PREFS_KEY, useLlmSettings } from "../hooks/useLlmSettings";
 import { normalizeResumeText, validateResumeFile } from "../utils/extractPdfText";
 
 const SAMPLE_JOB: Job = {
@@ -99,6 +99,21 @@ describe("cvMatch frontend — utilitários, BYOK storage e modal", () => {
     expect(localStorage.getItem(`${LLM_KEY_STORAGE_KEY}:openai`)).toBeNull();
     expect(sessionStorage.getItem(`${LLM_KEY_STORAGE_KEY}:xai`)).toBe("xai-remembered-123");
     expect(sessionStorage.getItem(`${LLM_KEY_STORAGE_KEY}:openai`)).toBe("sk-openai-remembered-456");
+  });
+
+  it("usa openai/gpt-oss-20b como padrão da Groq e migra modelo legado salvo no localStorage", () => {
+    localStorage.setItem(
+      LLM_PREFS_KEY,
+      JSON.stringify({
+        provider: "groq",
+        models: { groq: "llama-3.3-70b-versatile" },
+        rememberKey: false,
+      }),
+    );
+
+    const { result } = renderHook(() => useLlmSettings());
+    expect(result.current.settings.provider).toBe("groq");
+    expect(result.current.settings.model).toBe("openai/gpt-oss-20b");
   });
 
   it("envia análise pelo modal e renderiza resultado completo", async () => {

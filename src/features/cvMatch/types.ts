@@ -34,7 +34,7 @@ export const LLM_PROVIDER_OPTIONS: readonly LlmProviderOption[] = [
   {
     id: "groq",
     label: "Groq",
-    defaultModel: "llama-3.3-70b-versatile",
+    defaultModel: "openai/gpt-oss-20b",
     keyUrl: "https://console.groq.com/keys",
     keyHint: "gsk_...",
   },
