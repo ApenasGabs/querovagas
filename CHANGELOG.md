@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.13.1](https://github.com/ApenasGabs/querovagas/compare/v1.13.0...v1.13.1) (2026-11-24)
+
+### 🐛 Bug Fixes
+
+* **cv-match:** atualizar modelo padrão da Groq para openai/gpt-oss-20b (Refs [#35](https://github.com/ApenasGabs/querovagas/issues/35)) ([#36](https://github.com/ApenasGabs/querovagas/issues/36)) ([f536c8c](https://github.com/ApenasGabs/querovagas/commit/f536c8c0f6da66fb89f0d9b384eb1e78f5e03c41))
+
 ## [1.13.0](https://github.com/ApenasGabs/querovagas/compare/v1.12.0...v1.13.0) (2026-11-22)
 
 ### ✨ Features
