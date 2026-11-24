@@ -43,7 +43,7 @@ export const LLM_PROVIDERS: Record<LlmProviderId, ProviderConfig> = {
     label: "Groq",
     kind: "openai-compatible",
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
-    defaultModel: "llama-3.3-70b-versatile",
+    defaultModel: "openai/gpt-oss-20b",
   },
   openrouter: {
     label: "OpenRouter",
@@ -195,6 +195,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const optionalShortString = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim() ? value.trim().slice(0, SHORT_FIELD_MAX_CHARS) : undefined;
 
+const DEPRECATED_MODELS_BY_PROVIDER: Partial<Record<LlmProviderId, readonly string[]>> = {
+  groq: ["llama-3.3-70b-versatile"],
+};
+
 export const validateCvMatchRequest = (body: unknown): ValidationResult<CvMatchRequestInput> => {
   if (!isRecord(body)) return { ok: false, error: "Corpo da requisição inválido." };
 
@@ -204,8 +208,10 @@ export const validateCvMatchRequest = (body: unknown): ValidationResult<CvMatchR
     return { ok: false, error: "Provedor de IA inválido ou não suportado." };
   }
 
+  const rawModel = typeof model === "string" ? model.trim() : "";
+  const isDeprecatedDefault = rawModel !== "" && Boolean(DEPRECATED_MODELS_BY_PROVIDER[provider]?.includes(rawModel));
   const resolvedModel =
-    typeof model === "string" && model.trim() ? model.trim() : LLM_PROVIDERS[provider].defaultModel;
+    rawModel && !isDeprecatedDefault ? rawModel : LLM_PROVIDERS[provider].defaultModel;
   if (!MODEL_PATTERN.test(resolvedModel)) {
     return { ok: false, error: "Nome de modelo inválido." };
   }

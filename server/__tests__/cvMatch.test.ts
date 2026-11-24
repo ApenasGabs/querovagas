@@ -86,6 +86,28 @@ describe("cvMatch — validação, prompt, normalização e score", () => {
       expect(res.value.resumeText.length).toBe(RESUME_MAX_CHARS);
       expect(res.value.job.stack).toEqual(["React", "TypeScript", "Node.js"]);
     }
+
+    const groqRes = validateCvMatchRequest({
+      provider: "groq",
+      model: "",
+      resumeText: VALID_RESUME,
+      job: VALID_JOB,
+    });
+    expect(groqRes.ok).toBe(true);
+    if (groqRes.ok) {
+      expect(groqRes.value.model).toBe("openai/gpt-oss-20b");
+    }
+
+    const legacyGroqRes = validateCvMatchRequest({
+      provider: "groq",
+      model: "llama-3.3-70b-versatile",
+      resumeText: VALID_RESUME,
+      job: VALID_JOB,
+    });
+    expect(legacyGroqRes.ok).toBe(true);
+    if (legacyGroqRes.ok) {
+      expect(legacyGroqRes.value.model).toBe("openai/gpt-oss-20b");
+    }
   });
 
   it("rejeita provedor inválido, modelo inválido, currículo curto e vaga incompleta", () => {
