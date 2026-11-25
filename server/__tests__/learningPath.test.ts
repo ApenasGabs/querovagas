@@ -2,11 +2,19 @@
 import express from "express";
 import type { Server } from "http";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { createRateLimiter, CvMatchError, normalizeCvMatchResult, normalizeGapDetails } from "../../api/_lib/cvMatch.ts";
+import {
+  buildCvMatchMessages,
+  createRateLimiter,
+  CvMatchError,
+  normalizeCvMatchResult,
+  normalizeGapDetails,
+  validateCvMatchRequest,
+} from "../../api/_lib/cvMatch.ts";
 import {
   buildLearningPathMessages,
   createLearningPathHandler,
   LEARNING_PATH_MAX_STEPS,
+  gapNameScore,
   normalizeLearningPath,
   orderSteps,
   stripUrls,
@@ -101,6 +109,15 @@ describe("cvMatch — classificação das lacunas na análise", () => {
       { skill: "Senioridade sênior", status: "missing", priority: "required", kind: "experience" },
       { skill: "AWS", status: "missing", priority: "required", kind: "learnable" },
     ]);
+  });
+
+  it("pede vivência como lacuna e nomes de lacunas em português, exceto tecnologias (#39)", () => {
+    const res = validateCvMatchRequest(baseBody);
+    if (!res.ok) throw new Error("payload deveria ser válido");
+    const { system } = buildCvMatchMessages(res.value);
+    expect(system).toContain("tempo mínimo de experiência");
+    expect(system).toContain("Escreva os nomes das lacunas em português do Brasil");
+    expect(system).toContain("mantenha no original apenas nomes de tecnologias");
   });
 
   it("inclui gapDetails no resultado normalizado mesmo quando a IA só retorna missingSkills", () => {
@@ -202,6 +219,149 @@ describe("learningPath — validação, prompt e normalização", () => {
   });
 });
 
+describe("learningPath — cobertura das lacunas enviadas (#39)", () => {
+  const gap = (skill: string, priority: "required" | "nice_to_have" = "required", kind: "learnable" | "experience" = "learnable") =>
+    ({ skill, status: "missing", priority, kind }) as const;
+  const ctx = (gaps: ReturnType<typeof gap>[], knownSkills: string[] = []) => ({ knownSkills, job: VALID_JOB, gaps: [...gaps] });
+
+  it("compara nomes divergentes: acentos, caixa, siglas entre parênteses, abreviações e sem relação", () => {
+    expect(gapNameScore("kubernetes", "Kubernetes (K8s)")).toBe(2);
+    expect(gapNameScore("Provisionamento de infra", "Provisionamento de infraestrutura")).toBe(2);
+    expect(gapNameScore("Comunicacao", "Comunicação")).toBe(3);
+    expect(gapNameScore("Testes automatizados com Jest", "Testes automatizados")).toBe(2);
+    expect(gapNameScore("Node.js", "node.js")).toBe(3);
+    expect(gapNameScore("Java", "JavaScript")).toBe(0);
+    expect(gapNameScore("C#", "C++")).toBe(0);
+    expect(gapNameScore("Go", "Google Cloud")).toBe(0);
+    expect(gapNameScore("Terraform", "Provisionamento de infraestrutura")).toBe(0);
+  });
+
+  it("diferenciais omitidos pela IA (6 etapas para 9 lacunas) vão para 'Para depois' com a prioridade original", () => {
+    const sent = [
+      gap("React"),
+      gap("TypeScript"),
+      gap("Testes automatizados"),
+      gap("Docker", "nice_to_have"),
+      gap("Kubernetes (K8s)", "nice_to_have"),
+      gap("Terraform", "nice_to_have"),
+      gap("GraphQL", "nice_to_have"),
+      gap("Observabilidade", "nice_to_have"),
+      gap("Mensageria", "nice_to_have"),
+    ];
+    const path = normalizeLearningPath(
+      {
+        summary: "Trilha.",
+        steps: [
+          // IA inverte prioridades e devolve nomes diferentes dos enviados
+          rawStep("react", { priority: "nice_to_have" }),
+          rawStep("Typescript"),
+          rawStep("Testes automatizados com Jest"),
+          rawStep("Docker", { priority: "required" }),
+          rawStep("Kubernetes", { priority: "required", prerequisites: ["docker"] }),
+          rawStep("GraphQL"),
+        ],
+        experienceGaps: [],
+      },
+      ctx(sent),
+    );
+
+    expect(path.steps.map((s) => s.skill)).toEqual([
+      "React",
+      "TypeScript",
+      "Testes automatizados",
+      "Docker",
+      "Kubernetes (K8s)",
+      "GraphQL",
+    ]);
+    expect(path.steps.find((s) => s.skill === "React")?.priority).toBe("required");
+    expect(path.steps.find((s) => s.skill === "Docker")?.priority).toBe("nice_to_have");
+    expect(path.steps.find((s) => s.skill === "GraphQL")?.priority).toBe("nice_to_have");
+    expect(path.steps.find((s) => s.skill === "Kubernetes (K8s)")?.prerequisites).toEqual(["Docker"]);
+    expect(path.deferredGaps).toEqual([
+      { skill: "Terraform", status: "missing", priority: "nice_to_have", reason: "omitted" },
+      { skill: "Observabilidade", status: "missing", priority: "nice_to_have", reason: "omitted" },
+      { skill: "Mensageria", status: "missing", priority: "nice_to_have", reason: "omitted" },
+    ]);
+  });
+
+  it("lacunas além do limite de etapas também vão para 'Para depois', obrigatórias primeiro", () => {
+    const sent = Array.from({ length: 10 }, (_, i) => gap(`Tecnologia ${String.fromCharCode(65 + i)}`, i < 9 ? "nice_to_have" : "required"));
+    const path = normalizeLearningPath(
+      { summary: "", steps: sent.map((g) => rawStep(g.skill)), experienceGaps: [] },
+      ctx(sent),
+    );
+    expect(path.steps).toHaveLength(LEARNING_PATH_MAX_STEPS);
+    expect(path.steps[0].skill).toBe("Tecnologia J");
+    expect(path.deferredGaps?.map((g) => [g.skill, g.reason])).toEqual([
+      ["Tecnologia H", "step_limit"],
+      ["Tecnologia I", "step_limit"],
+    ]);
+  });
+
+  it("vivência omitida é incluída sem inventar motivo nem ideias; nome da IA é trocado pelo enviado", () => {
+    const sent = [gap("React"), gap("5 anos de experiência", "required", "experience"), gap("Liderança técnica", "nice_to_have", "experience")];
+    const path = normalizeLearningPath(
+      {
+        summary: "",
+        steps: [rawStep("React")],
+        experienceGaps: [
+          { gap: "5 anos de experiencia", reason: "A vaga pede tempo de mercado.", evidenceIdeas: ["Open source"] },
+          { gap: "Inglês fluente", reason: "Inventado pela IA.", evidenceIdeas: ["Curso"] },
+        ],
+      },
+      ctx(sent),
+    );
+    expect(path.experienceGaps).toEqual([
+      { gap: "5 anos de experiência", reason: "A vaga pede tempo de mercado.", evidenceIdeas: ["Open source"], detailed: true },
+      { gap: "Liderança técnica", reason: "", evidenceIdeas: [], detailed: false },
+    ]);
+  });
+
+  it("etapas sobrepostas para a mesma lacuna viram uma só, e etapas fora da lista são descartadas", () => {
+    const sent = [gap("Provisionamento de infraestrutura"), gap("Terraform", "nice_to_have")];
+    const path = normalizeLearningPath(
+      {
+        summary: "",
+        steps: [
+          rawStep("Provisionamento de infra", { topics: ["IaC"], hoursMin: 10, hoursMax: 20 }),
+          rawStep("Terraform", { topics: ["Módulos"], prerequisites: ["Provisionamento de infra"] }),
+          rawStep("Provisionamento de infraestrutura na nuvem", { topics: ["IaC", "Redes"], hoursMin: 30, hoursMax: 40 }),
+          rawStep("Rust", { topics: ["Ownership"] }),
+        ],
+        experienceGaps: [],
+      },
+      ctx(sent),
+    );
+    expect(path.steps.map((s) => s.skill)).toEqual(["Provisionamento de infraestrutura", "Terraform"]);
+    expect(path.steps[0]).toMatchObject({ topics: ["IaC", "Redes"], hoursMin: 10, hoursMax: 20 });
+    expect(path.steps[1].prerequisites).toEqual(["Provisionamento de infraestrutura"]);
+    expect(path.deferredGaps).toEqual([]);
+  });
+
+  it("resposta cortada no meio (só parte das etapas) mantém as demais lacunas visíveis", () => {
+    const sent = [gap("React"), gap("TypeScript"), gap("GraphQL", "nice_to_have"), gap("3 anos de experiência", "required", "experience")];
+    const path = normalizeLearningPath({ summary: "Trilha", steps: [rawStep("React")] }, ctx(sent));
+    expect(path.steps.map((s) => s.skill)).toEqual(["React"]);
+    expect(path.deferredGaps?.map((g) => g.skill)).toEqual(["TypeScript", "GraphQL"]);
+    expect(path.experienceGaps).toEqual([{ gap: "3 anos de experiência", reason: "", evidenceIdeas: [], detailed: false }]);
+  });
+
+  it("falha quando a IA não devolve nenhuma etapa nem vivência detalhada, mesmo com lacunas enviadas", () => {
+    expect(() =>
+      normalizeLearningPath({ summary: "x", steps: [rawStep("Rust")], experienceGaps: [] }, ctx([gap("React"), gap("1 ano", "required", "experience")])),
+    ).toThrowError(CvMatchError);
+  });
+
+  it("pede no prompt nomes exatos das lacunas e nomes em português, exceto tecnologias", () => {
+    const res = validateLearningPathRequest(baseBody);
+    if (!res.ok) throw new Error("payload deveria ser válido");
+    const { system } = buildLearningPathMessages(res.value);
+    expect(system).toContain("exatamente o nome da lacuna como foi enviado");
+    expect(system).toContain('usando em "gap" exatamente o nome enviado');
+    expect(system).toContain("Nomes de tecnologias, linguagens, ferramentas e plataformas ficam no original");
+  });
+});
+
 describe("learningPath — rota Express (/api/cv-match/learning-path)", () => {
   let realAppServer: Server;
   let realAppUrl: string;
@@ -282,6 +442,14 @@ describe("learningPath — rota Express (/api/cv-match/learning-path)", () => {
     const sentBody = JSON.parse(String((upstreamCall[1] as RequestInit).body)) as { messages: { content: string }[] };
     expect(sentBody.messages[1].content).toContain("<lacunas>");
 
+    const okPath = okBody.learningPath as unknown as {
+      deferredGaps: { skill: string }[];
+      experienceGaps: { gap: string; detailed: boolean }[];
+    };
+    // TypeScript foi marcado como "já sei"; GraphQL foi omitido pela IA e vai para "Para depois".
+    expect(okPath.deferredGaps.map((g) => g.skill)).toEqual(["GraphQL"]);
+    expect(okPath.experienceGaps).toEqual([expect.objectContaining({ gap: "5 anos de experiência", detailed: true })]);
+
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: "invalid api key" }), { status: 401 }));
     const badKey = await post(`${handlerUrl}/api/cv-match/learning-path`, auth, baseBody);
     expect(badKey.status).toBe(401);
@@ -290,5 +458,34 @@ describe("learningPath — rota Express (/api/cv-match/learning-path)", () => {
     const limited = await post(`${handlerUrl}/api/cv-match/learning-path`, auth, baseBody);
     expect(limited.status).toBe(429);
     expect(((await limited.json()) as { code: string }).code).toBe("rate_limited");
+  });
+
+  it("recusa resposta cortada pelo limite de tokens (finish_reason: length) em vez de exibir trilha incompleta", async () => {
+    const truncatedApp = express();
+    truncatedApp.use(express.json({ limit: "256kb" }));
+    const truncatedFetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          choices: [{ finish_reason: "length", message: { content: JSON.stringify({ summary: "x", steps: [rawStep("React")] }) } }],
+        }),
+        { status: 200 },
+      ),
+    );
+    truncatedApp.post(
+      "/api/cv-match/learning-path",
+      createLearningPathHandler({
+        verifyTrust: () => ({ valid: true, username: "ApenasGabs" }),
+        rateLimit: () => true,
+        fetchImpl: truncatedFetch,
+      }),
+    );
+    const { server, baseUrl } = await startExpressServer(truncatedApp);
+    try {
+      const res = await post(`${baseUrl}/api/cv-match/learning-path`, { "x-trust-token": "t", "x-llm-api-key": "xai-valid-key-123" }, baseBody);
+      expect(res.status).toBe(502);
+      expect(((await res.json()) as { code: string }).code).toBe("llm_truncated");
+    } finally {
+      await closeServer(server);
+    }
   });
 });

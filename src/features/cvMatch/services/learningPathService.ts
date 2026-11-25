@@ -1,5 +1,6 @@
 import type { Job } from "../../../types/job";
 import {
+  DEFERRED_GAP_REASON_LABELS,
   GAP_PRIORITY_LABELS,
   isLlmProviderId,
   SKILL_LEVEL_LABELS,
@@ -11,6 +12,10 @@ import {
   type SavedLearningPath,
 } from "../types";
 import { CvMatchRequestError, postCvMatchApi, toJobPayload } from "./cvMatchService";
+
+/** Exibido quando a IA omitiu uma lacuna de vivência: o servidor a inclui sem inventar motivo nem ideias. */
+export const UNDETAILED_EXPERIENCE_NOTE =
+  "A IA não detalhou esta lacuna. Ela continua valendo para a vaga: pense em como mostrar essa vivência no currículo.";
 
 export const LEARNING_PATHS_STORAGE_KEY = "qv_learning_paths";
 const MAX_SAVED_PATHS = 20;
@@ -26,7 +31,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isValidLearningPath = (value: unknown): value is LearningPath =>
-  isRecord(value) && Array.isArray(value.steps) && Array.isArray(value.experienceGaps);
+  isRecord(value) &&
+  Array.isArray(value.steps) &&
+  Array.isArray(value.experienceGaps) &&
+  (value.deferredGaps === undefined || Array.isArray(value.deferredGaps));
 
 const isValidLearningPathResponse = (payload: unknown): payload is LearningPathResponse =>
   isRecord(payload) &&
@@ -205,8 +213,18 @@ export const learningPathToMarkdown = (saved: SavedLearningPath): string => {
     lines.push("## Lacunas de vivência (sem prazo de estudo)", "");
     path.experienceGaps.forEach((gap) => {
       lines.push(`- **${gap.gap}**${gap.reason ? ` — ${gap.reason}` : ""}`);
+      if (gap.detailed === false) lines.push(`  - ${UNDETAILED_EXPERIENCE_NOTE}`);
       gap.evidenceIdeas.forEach((idea) => lines.push(`  - Como gerar evidência: ${idea}`));
     });
+    lines.push("");
+  }
+
+  const deferred = path.deferredGaps ?? [];
+  if (deferred.length > 0) {
+    lines.push("## Para depois", "");
+    deferred.forEach((gap) =>
+      lines.push(`- ${gap.skill} (${GAP_PRIORITY_LABELS[gap.priority]}, ${DEFERRED_GAP_REASON_LABELS[gap.reason]})`),
+    );
     lines.push("");
   }
 
