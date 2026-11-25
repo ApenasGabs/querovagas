@@ -1,16 +1,55 @@
 import { Palette } from "lucide-react";
-import type { KeyboardEvent } from "react";
-import { useCallback, useEffect, useState } from "react";
+import type { ChangeEvent, KeyboardEvent, ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const DEFAULT_THEME = "light";
 
-const ThemeSelector = () => {
+const THEME_LIST = [
+  "light",
+  "dark",
+  "cupcake",
+  "bumblebee",
+  "emerald",
+  "corporate",
+  "synthwave",
+  "retro",
+  "cyberpunk",
+  "valentine",
+  "halloween",
+  "garden",
+  "forest",
+  "aqua",
+  "lofi",
+  "pastel",
+  "fantasy",
+  "wireframe",
+  "black",
+  "luxury",
+  "dracula",
+  "cmyk",
+  "autumn",
+  "business",
+  "acid",
+  "lemonade",
+  "night",
+  "coffee",
+  "winter",
+  "dim",
+  "nord",
+  "sunset",
+  "purplewind",
+];
+
+const ThemeSelector = (): ReactElement => {
   const [currentTheme, setCurrentTheme] = useState<string>(() => {
     if (typeof window === "undefined") return DEFAULT_THEME;
     return localStorage.getItem("theme") || DEFAULT_THEME;
   });
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const drawerToggleRef = useRef<HTMLInputElement>(null);
+  const triggerButtonRef = useRef<HTMLLabelElement>(null);
 
-  const applyTheme = (theme: string) => {
+  const applyTheme = (theme: string): void => {
     // daisyUI aceita tanto data-theme quanto class na raiz
     document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.className = theme;
@@ -19,58 +58,47 @@ const ThemeSelector = () => {
     localStorage.setItem("theme", theme);
   };
 
-  const toggleDrawer = useCallback((): void => {
-    const drawerToggle = document.getElementById(
-      "theme-drawer",
-    ) as HTMLInputElement | null;
-
+  const setDrawerChecked = useCallback((checked: boolean): void => {
+    const drawerToggle = drawerToggleRef.current;
     if (!drawerToggle) return;
 
-    drawerToggle.checked = !drawerToggle.checked;
+    drawerToggle.checked = checked;
+    setIsDrawerOpen(checked);
     drawerToggle.dispatchEvent(new Event("change", { bubbles: true }));
   }, []);
+
+  const toggleDrawer = useCallback((): void => {
+    const drawerToggle = drawerToggleRef.current;
+    if (!drawerToggle) return;
+
+    setDrawerChecked(!drawerToggle.checked);
+  }, [setDrawerChecked]);
 
   useEffect(() => {
     applyTheme(currentTheme);
   }, [currentTheme]);
 
-  const ThemeList = [
-    "light",
-    "dark",
-    "cupcake",
-    "bumblebee",
-    "emerald",
-    "corporate",
-    "synthwave",
-    "retro",
-    "cyberpunk",
-    "valentine",
-    "halloween",
-    "garden",
-    "forest",
-    "aqua",
-    "lofi",
-    "pastel",
-    "fantasy",
-    "wireframe",
-    "black",
-    "luxury",
-    "dracula",
-    "cmyk",
-    "autumn",
-    "business",
-    "acid",
-    "lemonade",
-    "night",
-    "coffee",
-    "winter",
-    "dim",
-    "nord",
-    "sunset",
-    "purplewind",
-  ];
+  useEffect(() => {
+    if (!isDrawerOpen) return;
 
-  const ThemeOptions = ThemeList.map((theme) => (
+    const handleEscape = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        setDrawerChecked(false);
+        triggerButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isDrawerOpen, setDrawerChecked]);
+
+  const handleToggleChange = (event: ChangeEvent<HTMLInputElement>): void => {
+    setIsDrawerOpen(event.target.checked);
+  };
+
+  const ThemeOptions = THEME_LIST.map((theme) => (
     <li key={theme}>
       <input
         type="radio"
@@ -89,18 +117,23 @@ const ThemeSelector = () => {
     <div className="text-xl" data-testid="theme-selector">
       <div className="drawer drawer-end">
         <input
+          ref={drawerToggleRef}
           id="theme-drawer"
           type="checkbox"
           className="drawer-toggle"
           data-testid="theme-drawer-toggle"
           tabIndex={-1}
+          onChange={handleToggleChange}
         />
         <div className="drawer-content">
           <label
+            ref={triggerButtonRef}
             htmlFor="theme-drawer"
             className="btn btn-sm btn-ghost gap-1.5 px-2 sm:px-3 text-xs sm:text-sm font-semibold cursor-pointer"
             role="button"
             aria-label="Temas"
+            aria-expanded={isDrawerOpen}
+            aria-controls="theme-menu"
             data-testid="theme-button"
             tabIndex={0}
             onKeyDown={(event: KeyboardEvent<HTMLLabelElement>) => {
@@ -119,10 +152,12 @@ const ThemeSelector = () => {
           <label
             htmlFor="theme-drawer"
             className="drawer-overlay"
+            aria-label="Fechar seletor de temas"
             data-testid="theme-drawer-overlay"
           ></label>
           <ul
-            className="menu bg-base-200 text-base-content min-h-full w-80 p-4 pt-10"
+            id="theme-menu"
+            className="menu bg-base-200 text-base-content min-h-full w-80 max-w-[calc(100%-3rem)] p-4 pt-10"
             data-testid="theme-menu"
           >
             {ThemeOptions}
