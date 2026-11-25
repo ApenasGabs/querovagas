@@ -12,8 +12,9 @@ import {
   stepKey,
   toggleLearningPathStep,
   totalHours,
+  UNDETAILED_EXPERIENCE_NOTE,
 } from "../services/learningPathService";
-import { GAP_PRIORITY_LABELS, SKILL_LEVEL_LABELS, type SavedLearningPath } from "../types";
+import { DEFERRED_GAP_REASON_LABELS, GAP_PRIORITY_LABELS, SKILL_LEVEL_LABELS, type SavedLearningPath } from "../types";
 
 interface LearningPathViewProps {
   saved: SavedLearningPath;
@@ -32,6 +33,7 @@ export const LearningPathView = ({ saved, onChange }: LearningPathViewProps): Re
   }, []);
 
   const { path } = saved;
+  const deferredGaps = path.deferredGaps ?? [];
   const total = totalHours(path);
   const completed = countCompletedSteps(saved);
   const progress = path.steps.length > 0 ? Math.round((completed / path.steps.length) * 100) : 0;
@@ -232,6 +234,7 @@ export const LearningPathView = ({ saved, onChange }: LearningPathViewProps): Re
               <li key={`${gap.gap}-${i}`} className="break-words">
                 <strong>{gap.gap}</strong>
                 {gap.reason && <span className="text-base-content/80"> — {gap.reason}</span>}
+                {gap.detailed === false && <p className="text-xs text-base-content/60 mt-1">{UNDETAILED_EXPERIENCE_NOTE}</p>}
                 {gap.evidenceIdeas.length > 0 && (
                   <ul className="list-disc list-inside text-base-content/80 mt-1">
                     {gap.evidenceIdeas.map((idea, j) => (
@@ -239,6 +242,24 @@ export const LearningPathView = ({ saved, onChange }: LearningPathViewProps): Re
                     ))}
                   </ul>
                 )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {deferredGaps.length > 0 && (
+        <div className="p-4 rounded-xl border border-base-300/60 bg-base-200/40 space-y-2" data-testid="learning-path-deferred">
+          <h4 className="text-sm font-bold">Para depois</h4>
+          <p className="text-xs text-base-content/60">Lacunas aprendíveis que ficaram fora desta trilha. Estude depois das etapas acima.</p>
+          <ul className="space-y-1 text-sm">
+            {deferredGaps.map((gap) => (
+              <li key={gap.skill} className="flex flex-wrap items-center gap-1.5 break-words">
+                <span className="font-semibold">{gap.skill}</span>
+                <span className={`badge badge-sm ${gap.priority === "required" ? "badge-error" : "badge-info"} badge-soft`}>
+                  {GAP_PRIORITY_LABELS[gap.priority]}
+                </span>
+                <span className="text-xs text-base-content/60">{DEFERRED_GAP_REASON_LABELS[gap.reason]}</span>
               </li>
             ))}
           </ul>

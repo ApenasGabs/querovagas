@@ -305,6 +305,8 @@ export const buildCvMatchMessages = (input: CvMatchRequestInput): LlmMessages =>
     "5. Se a descrição da vaga for curta ou ausente, use título, senioridade e stack e mencione essa limitação no resumo.",
     "6. Escreva tudo em português do Brasil, de forma direta e prática.",
     '7. Classifique cada lacuna em gapDetails: status "missing" (ausente) ou "partial" (fraca/parcial); priority "required" (obrigatória) ou "nice_to_have" (diferencial); kind "learnable" (conhecimento que se aprende estudando) ou "experience" (vivência, como tempo de experiência, senioridade, liderança ou domínio de negócio). Tecnologias, linguagens, ferramentas e plataformas são SEMPRE "learnable", mesmo que a vaga peça experiência com elas.',
+    "8. Requisitos de vivência não atendidos (ex.: tempo mínimo de experiência, senioridade, liderança) também são lacunas: inclua-os em missingSkills e gapDetails.",
+    "9. Escreva os nomes das lacunas em português do Brasil (ex.: \"Provisionamento de infraestrutura\", \"5 anos de experiência\"); mantenha no original apenas nomes de tecnologias, linguagens, ferramentas e plataformas (ex.: Terraform, React).",
     "",
     "Critérios (dê uma nota inteira de 0 a 100 para cada):",
     criteriaLines,

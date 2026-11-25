@@ -175,12 +175,31 @@ export interface LearningPathExperienceGap {
   gap: string;
   reason: string;
   evidenceIdeas: string[];
+  /** `false` quando a IA omitiu a lacuna e o servidor a incluiu sem detalhes. */
+  detailed?: boolean;
 }
+
+export type DeferredGapReason = "omitted" | "step_limit";
+
+/** Lacuna aprendível que ficou fora da trilha ("Para depois"). */
+export interface LearningPathDeferredGap {
+  skill: string;
+  status: GapStatus;
+  priority: GapPriority;
+  reason: DeferredGapReason;
+}
+
+export const DEFERRED_GAP_REASON_LABELS: Record<DeferredGapReason, string> = {
+  omitted: "a IA não gerou etapa",
+  step_limit: "fora do limite de etapas",
+};
 
 export interface LearningPath {
   summary: string;
   steps: LearningPathStep[];
   experienceGaps: LearningPathExperienceGap[];
+  /** Ausente em trilhas salvas antes da v1.15. */
+  deferredGaps?: LearningPathDeferredGap[];
   limitedDescription: boolean;
 }
 
