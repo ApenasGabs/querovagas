@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.14.0](https://github.com/ApenasGabs/querovagas/compare/v1.13.1...v1.14.0) (2026-11-25)
+
+### ✨ Features
+
+* **cv-match:** trilha de aprendizado a partir das lacunas da vaga ([#37](https://github.com/ApenasGabs/querovagas/issues/37)) ([#38](https://github.com/ApenasGabs/querovagas/issues/38)) ([f76e439](https://github.com/ApenasGabs/querovagas/commit/f76e43922eea389cf7250960511cf1f5fb325dc9))
+
 ## [1.13.1](https://github.com/ApenasGabs/querovagas/compare/v1.13.0...v1.13.1) (2026-11-24)
 
 ### 🐛 Bug Fixes
