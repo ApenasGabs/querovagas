@@ -279,25 +279,47 @@ test.describe("ThemeSelector - E2E Tests", () => {
   });
 
   test.describe("Responsividade", () => {
-    test("deve funcionar em mobile", async ({ page }) => {
-      await page.setViewportSize({ width: 375, height: 667 });
-      await page.goto("/");
+    test("deve funcionar em mobile sem overflow horizontal em 320px e 375px", async ({ page }) => {
+      for (const viewport of [
+        { width: 320, height: 568 },
+        { width: 375, height: 812 },
+      ]) {
+        await page.setViewportSize(viewport);
+        await page.goto("/");
 
-      // Verificar se botão está visível
-      const themeButton = page.getByRole("button", { name: "Temas" });
-      await expect(themeButton).toBeVisible();
+        const closedOverflow = await page.evaluate(() => ({
+          scrollWidth: document.documentElement.scrollWidth,
+          clientWidth: document.documentElement.clientWidth,
+        }));
+        expect(closedOverflow.scrollWidth).toBeLessThanOrEqual(closedOverflow.clientWidth);
 
-      // Abrir drawer
-      await themeButton.click();
+        const themeButton = page.getByRole("button", { name: "Temas" });
+        await expect(themeButton).toBeVisible();
 
-      // Verificar se drawer está visível
-      const menu = page.locator(".menu");
-      await expect(menu).toBeVisible();
+        await themeButton.click();
+        const menu = page.locator(".menu");
+        await expect(menu).toBeVisible();
 
-      // Selecionar tema
+        const openOverflow = await page.evaluate(() => {
+          const menuRect = document.querySelector("[data-testid='theme-menu']")?.getBoundingClientRect();
+          return {
+            scrollWidth: document.documentElement.scrollWidth,
+            clientWidth: document.documentElement.clientWidth,
+            menuLeft: menuRect ? menuRect.left : -1,
+            menuRight: menuRect ? menuRect.right : -1,
+          };
+        });
+        expect(openOverflow.scrollWidth).toBeLessThanOrEqual(openOverflow.clientWidth);
+        expect(openOverflow.menuLeft).toBeGreaterThanOrEqual(0);
+        expect(openOverflow.menuRight).toBeLessThanOrEqual(openOverflow.clientWidth + 0.5);
+
+        await page.keyboard.press("Escape");
+        await expect(page.locator("#theme-drawer")).not.toBeChecked();
+      }
+
+      // Selecionar tema no mobile
+      await page.getByRole("button", { name: "Temas" }).click();
       await page.getByRole("radio", { name: "Dark" }).click();
-
-      // Verificar aplicação
       const htmlTheme = await page.locator("html").getAttribute("data-theme");
       expect(htmlTheme).toBe("dark");
     });

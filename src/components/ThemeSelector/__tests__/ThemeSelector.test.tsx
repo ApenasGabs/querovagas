@@ -240,6 +240,38 @@ describe("ThemeSelector", () => {
       const drawerOverlay = screen.getByTestId("theme-drawer-overlay");
       expect(drawerOverlay).toBeInTheDocument();
     });
+
+    it("deve limitar largura do menu para caber em viewports estreitos", () => {
+      render(<ThemeSelector />);
+
+      const menu = screen.getByTestId("theme-menu");
+      expect(menu).toHaveClass("w-80");
+      expect(menu).toHaveClass("max-w-[calc(100%-3rem)]");
+    });
+
+    it("deve abrir e fechar o drawer via teclado (Enter, Space e Escape)", () => {
+      render(<ThemeSelector />);
+
+      const button = screen.getByTestId("theme-button");
+      const drawerToggle = screen.getByTestId("theme-drawer-toggle") as HTMLInputElement;
+
+      expect(button).toHaveAttribute("aria-expanded", "false");
+      expect(drawerToggle.checked).toBe(false);
+
+      button.focus();
+      fireEvent.keyDown(button, { key: "Enter" });
+      expect(drawerToggle.checked).toBe(true);
+      expect(button).toHaveAttribute("aria-expanded", "true");
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(drawerToggle.checked).toBe(false);
+      expect(button).toHaveAttribute("aria-expanded", "false");
+      expect(button).toHaveFocus();
+
+      fireEvent.keyDown(button, { key: " " });
+      expect(drawerToggle.checked).toBe(true);
+      expect(button).toHaveAttribute("aria-expanded", "true");
+    });
   });
 
   describe("Acessibilidade", () => {
