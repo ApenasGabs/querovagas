@@ -270,4 +270,85 @@ export const trackCvMatchFailed = (props: { jobId: string; provider?: string; re
   });
 };
 
+/**
+ * Trilha de estudos (cv-match learning path). Apenas metadados: nunca envia currículo,
+ * nomes de skills nem conteúdo da trilha.
+ */
+export const trackLearningPathStarted = (props: {
+  jobId: string;
+  provider: string;
+  gapCount: number;
+  knownCount: number;
+  experienceCount: number;
+  hoursPerWeek: number;
+}): void => {
+  if (!isInitialized) return;
+  posthog.capture("learning_path_started", {
+    job_id: props.jobId,
+    provider: props.provider,
+    gap_count: props.gapCount,
+    known_count: props.knownCount,
+    experience_count: props.experienceCount,
+    hours_per_week: props.hoursPerWeek,
+  });
+};
+
+export const trackLearningPathCompleted = (props: {
+  jobId: string;
+  provider: string;
+  stepCount: number;
+  experienceGapCount: number;
+  limitedDescription: boolean;
+  durationMs: number;
+}): void => {
+  if (!isInitialized) return;
+  posthog.capture("learning_path_completed", {
+    job_id: props.jobId,
+    provider: props.provider,
+    step_count: props.stepCount,
+    experience_gap_count: props.experienceGapCount,
+    limited_description: props.limitedDescription,
+    duration_ms: props.durationMs,
+  });
+};
+
+export const trackLearningPathFailed = (props: { jobId: string; provider?: string; reason: string }): void => {
+  if (!isInitialized) return;
+  posthog.capture("learning_path_failed", {
+    job_id: props.jobId,
+    provider: props.provider,
+    reason: props.reason,
+  });
+};
+
+export const trackLearningPathStepToggled = (props: {
+  jobId: string;
+  completed: boolean;
+  completedSteps: number;
+  totalSteps: number;
+}): void => {
+  if (!isInitialized) return;
+  posthog.capture("learning_path_step_toggled", {
+    job_id: props.jobId,
+    completed: props.completed,
+    completed_steps: props.completedSteps,
+    total_steps: props.totalSteps,
+  });
+};
+
+export const trackLearningPathExported = (props: { jobId: string; method: "copy" | "download" }): void => {
+  if (!isInitialized) return;
+  posthog.capture("learning_path_exported", { job_id: props.jobId, method: props.method });
+};
+
+export const trackLearningPathOpened = (props: { jobId: string; source: "saved" | "generated" }): void => {
+  if (!isInitialized) return;
+  posthog.capture("learning_path_opened", { job_id: props.jobId, source: props.source });
+};
+
+export const trackLearningPathDeleted = (props: { jobId: string }): void => {
+  if (!isInitialized) return;
+  posthog.capture("learning_path_deleted", { job_id: props.jobId });
+};
+
 export { posthog };

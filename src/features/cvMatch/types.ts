@@ -86,6 +86,18 @@ export interface CvMatchCriterionResult {
   justification: string;
 }
 
+export type GapStatus = "missing" | "partial";
+export type GapPriority = "required" | "nice_to_have";
+export type GapKind = "learnable" | "experience";
+
+/** Lacuna classificada pela análise: ausente/parcial, obrigatória/diferencial e aprendível/vivência. */
+export interface CvMatchGap {
+  skill: string;
+  status: GapStatus;
+  priority: GapPriority;
+  kind: GapKind;
+}
+
 export interface CvMatchResult {
   score: number;
   tier: CvMatchTier;
@@ -93,6 +105,8 @@ export interface CvMatchResult {
   criteria: CvMatchCriterionResult[];
   matchedSkills: string[];
   missingSkills: string[];
+  /** Opcional para tolerar respostas antigas; use `getResultGaps` para ler. */
+  gapDetails?: CvMatchGap[];
   strengths: string[];
   gaps: string[];
   suggestions: { section: string; suggestion: string }[];
@@ -110,4 +124,83 @@ export interface CvMatchResponse {
 export interface ResumeDraft {
   fileName?: string;
   text: string;
+}
+
+/** Lacunas classificadas da análise (com fallback para `missingSkills` de respostas antigas). */
+export const getResultGaps = (result: Pick<CvMatchResult, "gapDetails" | "missingSkills">): CvMatchGap[] =>
+  result.gapDetails && result.gapDetails.length > 0
+    ? result.gapDetails
+    : result.missingSkills.map((skill) => ({ skill, status: "missing", priority: "required", kind: "learnable" }));
+
+export type SkillLevel = "none" | "basic" | "intermediate" | "advanced";
+
+export const SKILL_LEVEL_LABELS: Record<SkillLevel, string> = {
+  none: "Nenhum",
+  basic: "Básico",
+  intermediate: "Intermediário",
+  advanced: "Avançado",
+};
+
+export const GAP_PRIORITY_LABELS: Record<GapPriority, string> = {
+  required: "Obrigatória",
+  nice_to_have: "Diferencial",
+};
+
+export const GAP_STATUS_LABELS: Record<GapStatus, string> = {
+  missing: "Ausente",
+  partial: "Parcial",
+};
+
+export const GAP_KIND_LABELS: Record<GapKind, string> = {
+  learnable: "Aprendível",
+  experience: "Vivência",
+};
+
+export interface LearningPathStep {
+  skill: string;
+  priority: GapPriority;
+  currentLevel: SkillLevel;
+  targetLevel: SkillLevel;
+  reason: string;
+  prerequisites: string[];
+  topics: string[];
+  hoursMin: number;
+  hoursMax: number;
+  practiceProject: string;
+  doneCriteria: string[];
+  searchTerms: string[];
+}
+
+export interface LearningPathExperienceGap {
+  gap: string;
+  reason: string;
+  evidenceIdeas: string[];
+}
+
+export interface LearningPath {
+  summary: string;
+  steps: LearningPathStep[];
+  experienceGaps: LearningPathExperienceGap[];
+  limitedDescription: boolean;
+}
+
+export interface LearningPathResponse {
+  learningPath: LearningPath;
+  provider: LlmProviderId;
+  model: string;
+}
+
+/** Trilha salva apenas no navegador (localStorage), por vaga. */
+export interface SavedLearningPath {
+  version: 1;
+  jobId: string;
+  jobTitle: string;
+  company: string;
+  createdAt: string;
+  hoursPerWeek: number;
+  knownSkills: string[];
+  completedSteps: string[];
+  provider: LlmProviderId;
+  model: string;
+  path: LearningPath;
 }

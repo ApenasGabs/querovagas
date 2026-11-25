@@ -10,6 +10,13 @@ import {
   trackJobShared,
   trackLoginCompleted,
   trackLoginInitiated,
+  trackLearningPathCompleted,
+  trackLearningPathDeleted,
+  trackLearningPathExported,
+  trackLearningPathFailed,
+  trackLearningPathOpened,
+  trackLearningPathStarted,
+  trackLearningPathStepToggled,
   trackLogout,
   trackPageView,
 } from "../analytics";
@@ -168,5 +175,52 @@ describe("Analytics Service (PostHog)", () => {
     expect(posthog.capture).toHaveBeenCalledWith("company_upvoted", {
       company_name: "Nubank",
     });
+  });
+});
+
+describe("Analytics — trilha de estudos (sem conteúdo sensível)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv("VITE_POSTHOG_KEY", "phc_test_12345");
+    initAnalytics();
+  });
+
+  it("envia apenas metadados nos eventos da trilha", () => {
+    trackLearningPathStarted({
+      jobId: "job-1",
+      provider: "xai",
+      gapCount: 3,
+      knownCount: 1,
+      experienceCount: 1,
+      hoursPerWeek: 6,
+    });
+    trackLearningPathCompleted({
+      jobId: "job-1",
+      provider: "xai",
+      stepCount: 4,
+      experienceGapCount: 1,
+      limitedDescription: false,
+      durationMs: 1200,
+    });
+    trackLearningPathFailed({ jobId: "job-1", provider: "xai", reason: "llm_timeout" });
+    trackLearningPathStepToggled({ jobId: "job-1", completed: true, completedSteps: 1, totalSteps: 4 });
+    trackLearningPathExported({ jobId: "job-1", method: "download" });
+    trackLearningPathOpened({ jobId: "job-1", source: "saved" });
+    trackLearningPathDeleted({ jobId: "job-1" });
+
+    expect(posthog.capture).toHaveBeenCalledWith("learning_path_started", {
+      job_id: "job-1",
+      provider: "xai",
+      gap_count: 3,
+      known_count: 1,
+      experience_count: 1,
+      hours_per_week: 6,
+    });
+    expect(posthog.capture).toHaveBeenCalledWith("learning_path_exported", { job_id: "job-1", method: "download" });
+    const payloads = vi.mocked(posthog.capture).mock.calls.map((call) => JSON.stringify(call[1]));
+    for (const payload of payloads) {
+      expect(payload).not.toMatch(/resume|curriculo|skill|topic|summary/i);
+    }
+    expect(posthog.capture).toHaveBeenCalledTimes(7);
   });
 });

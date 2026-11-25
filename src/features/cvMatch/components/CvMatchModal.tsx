@@ -1,10 +1,23 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent, type ReactElement } from "react";
-import { Eye, EyeOff, FileText, KeyRound, Loader2, RotateCcw, ShieldCheck, Sparkles, Upload, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Eye, EyeOff, FileText, KeyRound, Loader2, RotateCcw, ShieldCheck, Sparkles, Upload, X } from "lucide-react";
 import type { Job } from "../../../types/job";
-import { trackCvMatchCompleted, trackCvMatchFailed, trackCvMatchStarted } from "../../../services/analytics";
+import {
+  trackCvMatchCompleted,
+  trackCvMatchFailed,
+  trackCvMatchStarted,
+  trackLearningPathOpened,
+} from "../../../services/analytics";
 import { useLlmSettings } from "../hooks/useLlmSettings";
 import { analyzeCvMatch, CvMatchRequestError, loadResumeDraft, saveResumeDraft } from "../services/cvMatchService";
-import { getProviderOption, isLlmProviderId, LLM_PROVIDER_OPTIONS, type CvMatchResponse } from "../types";
+import { countCompletedSteps, loadLearningPath } from "../services/learningPathService";
+import {
+  getProviderOption,
+  getResultGaps,
+  isLlmProviderId,
+  LLM_PROVIDER_OPTIONS,
+  type CvMatchResponse,
+  type SavedLearningPath,
+} from "../types";
 import {
   extractPdfText,
   MAX_RESUME_CHARS,
@@ -13,6 +26,8 @@ import {
   validateResumeFile,
 } from "../utils/extractPdfText";
 import { CvMatchResult } from "./CvMatchResult";
+import { LearningPathPanel } from "./LearningPathPanel";
+import { LearningPathView } from "./LearningPathView";
 
 interface CvMatchModalProps {
   job: Job;
@@ -20,7 +35,7 @@ interface CvMatchModalProps {
 }
 
 type InputMethod = "pdf" | "text";
-type Phase = "form" | "loading" | "result";
+type Phase = "form" | "loading" | "result" | "path";
 
 export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement => {
   const titleId = useId();
@@ -42,6 +57,8 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
   const [phase, setPhase] = useState<Phase>("form");
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<CvMatchResponse | null>(null);
+  const [analyzedResume, setAnalyzedResume] = useState("");
+  const [savedPath, setSavedPath] = useState<SavedLearningPath | null>(() => loadLearningPath(job.id));
   const abortRef = useRef<AbortController | null>(null);
   const onCloseRef = useRef(onClose);
 
@@ -140,6 +157,7 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
         signal: controller.signal,
       });
       setResponse(data);
+      setAnalyzedResume(trimmedResume);
       setPhase("result");
       trackCvMatchCompleted({
         jobId: job.id,
@@ -168,6 +186,16 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
 
   const handleCancel = () => {
     abortRef.current?.abort();
+  };
+
+  const handleOpenSavedPath = () => {
+    setPhase("path");
+    trackLearningPathOpened({ jobId: job.id, source: "saved" });
+  };
+
+  const handleSavedPathChange = (next: SavedLearningPath | null) => {
+    setSavedPath(next);
+    if (!next && phase === "path") setPhase("form");
   };
 
   const handleNewAnalysis = () => {
@@ -208,11 +236,25 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
         {/* Corpo */}
         <div className="p-5 overflow-y-auto flex-1 space-y-5 min-w-0">
           {phase === "result" && response ? (
-            <CvMatchResult
-              result={response.result}
-              providerLabel={getProviderOption(response.provider).label}
-              model={response.model}
-            />
+            <>
+              <CvMatchResult
+                result={response.result}
+                providerLabel={getProviderOption(response.provider).label}
+                model={response.model}
+              />
+              <LearningPathPanel
+                job={job}
+                gaps={getResultGaps(response.result)}
+                resumeText={analyzedResume}
+                provider={response.provider}
+                model={response.model}
+                apiKey={settings.apiKey}
+                saved={savedPath}
+                onSavedChange={setSavedPath}
+              />
+            </>
+          ) : phase === "path" && savedPath ? (
+            <LearningPathView saved={savedPath} onChange={handleSavedPathChange} />
           ) : phase === "loading" ? (
             <div className="py-16 flex flex-col items-center gap-4 text-center" aria-live="polite">
               <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -226,6 +268,23 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
             </div>
           ) : (
             <form id="cv-match-form" className="space-y-5 min-w-0" onSubmit={handleSubmit}>
+              {savedPath && (
+                <div
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-primary/30 bg-primary/5"
+                  data-testid="saved-learning-path-banner"
+                >
+                  <p className="flex items-start gap-1.5 text-sm min-w-0">
+                    <BookOpen className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    <span>
+                      Você tem uma trilha de estudos salva para esta vaga ({countCompletedSteps(savedPath)} de{" "}
+                      {savedPath.path.steps.length} etapas concluídas).
+                    </span>
+                  </p>
+                  <button type="button" className="btn btn-sm btn-primary btn-outline shrink-0" onClick={handleOpenSavedPath}>
+                    Abrir trilha
+                  </button>
+                </div>
+              )}
               {/* Currículo */}
               <fieldset className="space-y-3 min-w-0">
                 <legend className="text-xs font-bold uppercase tracking-wider text-base-content/60 mb-2">
@@ -405,7 +464,8 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
                   <p>
                     O PDF é lido no seu navegador. O QueroVagas só repassa o texto do currículo e a vaga ao provedor
                     escolhido, usando a sua chave, e não armazena nem registra nenhum dos dois. O custo da chamada é
-                    cobrado na sua conta do provedor.
+                    cobrado na sua conta do provedor. Se você gerar uma trilha de estudos, ela e o seu progresso ficam
+                    salvos apenas neste navegador.
                   </p>
                 </div>
               </fieldset>
@@ -421,7 +481,16 @@ export const CvMatchModal = ({ job, onClose }: CvMatchModalProps): ReactElement 
 
         {/* Rodapé */}
         <div className="p-4 border-t border-base-200 bg-base-200/30 flex items-center justify-end gap-2">
-          {phase === "result" ? (
+          {phase === "path" ? (
+            <>
+              <button type="button" className="btn btn-sm btn-ghost gap-1.5" onClick={() => setPhase("form")}>
+                <ArrowLeft className="w-4 h-4" /> Voltar
+              </button>
+              <button type="button" className="btn btn-sm btn-primary" onClick={onClose}>
+                Concluir
+              </button>
+            </>
+          ) : phase === "result" ? (
             <>
               <button type="button" className="btn btn-sm btn-ghost gap-1.5" onClick={handleNewAnalysis}>
                 <RotateCcw className="w-4 h-4" /> Nova análise
