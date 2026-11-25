@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { AlertTriangle, Check, CheckCircle2, Copy, Lightbulb, PenLine, Target, XCircle } from "lucide-react";
-import type { CvMatchResult as CvMatchResultData, CvMatchTier } from "../types";
+import {
+  GAP_KIND_LABELS,
+  GAP_PRIORITY_LABELS,
+  GAP_STATUS_LABELS,
+  getResultGaps,
+  type CvMatchResult as CvMatchResultData,
+  type CvMatchTier,
+} from "../types";
 
 const TIER_STYLES: Record<CvMatchTier, { text: string; badge: string; progress: string }> = {
   high: { text: "text-success", badge: "badge-success", progress: "progress-success" },
@@ -61,6 +68,7 @@ const CopyButton = ({ text }: { text: string }): ReactElement => {
 
 export const CvMatchResult = ({ result, providerLabel, model }: CvMatchResultProps): ReactElement => {
   const tierStyle = TIER_STYLES[result.tier];
+  const gaps = getResultGaps(result);
   const radialStyle = { "--value": result.score, "--size": "7rem", "--thickness": "0.6rem" } as CSSProperties;
 
   return (
@@ -119,7 +127,7 @@ export const CvMatchResult = ({ result, providerLabel, model }: CvMatchResultPro
       </section>
 
       {/* Skills */}
-      {(result.matchedSkills.length > 0 || result.missingSkills.length > 0) && (
+      {(result.matchedSkills.length > 0 || gaps.length > 0) && (
         <section className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-success">
@@ -141,17 +149,28 @@ export const CvMatchResult = ({ result, providerLabel, model }: CvMatchResultPro
             <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-error">
               <XCircle className="w-4 h-4" /> Requisitos ausentes ou fracos
             </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {result.missingSkills.length > 0 ? (
-                result.missingSkills.map((skill, index) => (
-                  <span key={`${skill}-${index}`} className="badge badge-error badge-soft badge-sm">
-                    {skill}
-                  </span>
-                ))
-              ) : (
-                <span className="text-xs text-base-content/50">Nenhum — ótimo sinal!</span>
-              )}
-            </div>
+            {gaps.length > 0 ? (
+              <ul className="space-y-1.5" data-testid="cv-match-gaps">
+                {gaps.map((gap, index) => (
+                  <li key={`${gap.skill}-${index}`} className="flex flex-wrap items-center gap-1 text-sm min-w-0">
+                    <span className="font-medium break-words mr-1">{gap.skill}</span>
+                    <span className="badge badge-xs badge-ghost">{GAP_STATUS_LABELS[gap.status]}</span>
+                    <span
+                      className={`badge badge-xs badge-soft ${gap.priority === "required" ? "badge-error" : "badge-info"}`}
+                    >
+                      {GAP_PRIORITY_LABELS[gap.priority]}
+                    </span>
+                    <span
+                      className={`badge badge-xs badge-soft ${gap.kind === "experience" ? "badge-warning" : "badge-primary"}`}
+                    >
+                      {GAP_KIND_LABELS[gap.kind]}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <span className="text-xs text-base-content/50">Nenhum — ótimo sinal!</span>
+            )}
           </div>
         </section>
       )}

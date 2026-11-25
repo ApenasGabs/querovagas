@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { createCvMatchHandler } from "./_lib/cvMatch.ts";
+import { createLearningPathHandler } from "./_lib/learningPath.ts";
 
 const app = express();
 app.disable("x-powered-by");
@@ -13109,6 +13110,8 @@ const readCatalog = (): CompanyRecord[] => {
 // GET /companies - Lista consolidada de empresas monitoradas e sugeridas
 // Análise de compatibilidade Currículo × Vaga com IA (BYOK — chave do usuário, nunca persistida)
 app.post("/cv-match/analyze", createCvMatchHandler({ verifyTrust: verifyTrustToken }));
+// Trilha de estudos a partir das lacunas da análise (BYOK, sob demanda; trilha não é persistida no servidor)
+app.post("/cv-match/learning-path", createLearningPathHandler({ verifyTrust: verifyTrustToken }));
 
 app.get("/companies", async (req: Request, res: Response) => {
   try {

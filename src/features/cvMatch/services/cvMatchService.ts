@@ -33,14 +33,25 @@ export interface AnalyzeCvMatchParams {
   signal?: AbortSignal;
 }
 
-export const analyzeCvMatch = async ({
-  provider,
-  model,
-  apiKey,
-  resumeText,
-  job,
-  signal,
-}: AnalyzeCvMatchParams): Promise<CvMatchResponse> => {
+export const toJobPayload = (job: Job) => ({
+  title: job.title,
+  company: job.company,
+  seniorityLevel: job.seniorityLevel,
+  workModel: job.workModel,
+  contractType: job.contractType,
+  location: job.location,
+  stack: job.stack,
+  description: job.description,
+});
+
+/** POST autenticado para as rotas BYOK de /api/cv-match (chave no header, nunca no corpo). */
+export const postCvMatchApi = async (
+  path: string,
+  apiKey: string,
+  body: Record<string, unknown>,
+  fallbackError: string,
+  signal?: AbortSignal,
+): Promise<unknown> => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "x-llm-api-key": apiKey.trim(),
@@ -50,26 +61,7 @@ export const analyzeCvMatch = async ({
 
   let res: Response;
   try {
-    res = await fetch("/api/cv-match/analyze", {
-      method: "POST",
-      headers,
-      signal,
-      body: JSON.stringify({
-        provider,
-        model: model.trim(),
-        resumeText,
-        job: {
-          title: job.title,
-          company: job.company,
-          seniorityLevel: job.seniorityLevel,
-          workModel: job.workModel,
-          contractType: job.contractType,
-          location: job.location,
-          stack: job.stack,
-          description: job.description,
-        },
-      }),
-    });
+    res = await fetch(path, { method: "POST", headers, signal, body: JSON.stringify(body) });
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     throw new CvMatchRequestError(0, "network_error", "Falha de conexão com o QueroVagas. Verifique sua internet.");
@@ -78,13 +70,31 @@ export const analyzeCvMatch = async ({
   const payload: unknown = await res.json().catch(() => null);
 
   if (!res.ok) {
-    const body = (payload ?? {}) as { error?: unknown; code?: unknown };
+    const errorBody = (payload ?? {}) as { error?: unknown; code?: unknown };
     throw new CvMatchRequestError(
       res.status,
-      typeof body.code === "string" ? body.code : "http_error",
-      typeof body.error === "string" ? body.error : `Erro ao analisar o currículo (HTTP ${res.status}).`,
+      typeof errorBody.code === "string" ? errorBody.code : "http_error",
+      typeof errorBody.error === "string" ? errorBody.error : `${fallbackError} (HTTP ${res.status}).`,
     );
   }
+  return payload;
+};
+
+export const analyzeCvMatch = async ({
+  provider,
+  model,
+  apiKey,
+  resumeText,
+  job,
+  signal,
+}: AnalyzeCvMatchParams): Promise<CvMatchResponse> => {
+  const payload = await postCvMatchApi(
+    "/api/cv-match/analyze",
+    apiKey,
+    { provider, model: model.trim(), resumeText, job: toJobPayload(job) },
+    "Erro ao analisar o currículo",
+    signal,
+  );
 
   if (!isValidCvMatchResponse(payload)) {
     throw new CvMatchRequestError(502, "invalid_response", "Resposta inesperada do servidor. Tente novamente.");
