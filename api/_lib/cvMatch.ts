@@ -172,6 +172,18 @@ export interface CvMatchRewrite {
   rewritten: string;
 }
 
+export type GapStatus = "missing" | "partial";
+export type GapPriority = "required" | "nice_to_have";
+export type GapKind = "learnable" | "experience";
+
+/** Lacuna classificada: ausente/parcial, obrigatória/diferencial e aprendível/vivência. */
+export interface CvMatchGap {
+  skill: string;
+  status: GapStatus;
+  priority: GapPriority;
+  kind: GapKind;
+}
+
 export interface CvMatchResult {
   score: number;
   tier: CvMatchTier;
@@ -179,6 +191,7 @@ export interface CvMatchResult {
   criteria: CvMatchCriterionResult[];
   matchedSkills: string[];
   missingSkills: string[];
+  gapDetails: CvMatchGap[];
   strengths: string[];
   gaps: string[];
   suggestions: CvMatchSuggestion[];
@@ -189,7 +202,7 @@ export interface CvMatchResult {
 
 type ValidationResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const optionalShortString = (value: unknown): string | undefined =>
@@ -291,6 +304,7 @@ export const buildCvMatchMessages = (input: CvMatchRequestInput): LlmMessages =>
     "4. Considere equivalências razoáveis (ex.: experiência com Vue conta parcialmente para React), mas deixe claro quando é parcial.",
     "5. Se a descrição da vaga for curta ou ausente, use título, senioridade e stack e mencione essa limitação no resumo.",
     "6. Escreva tudo em português do Brasil, de forma direta e prática.",
+    '7. Classifique cada lacuna em gapDetails: status "missing" (ausente) ou "partial" (fraca/parcial); priority "required" (obrigatória) ou "nice_to_have" (diferencial); kind "learnable" (conhecimento que se aprende estudando) ou "experience" (vivência, como tempo de experiência, senioridade, liderança ou domínio de negócio).',
     "",
     "Critérios (dê uma nota inteira de 0 a 100 para cada):",
     criteriaLines,
@@ -302,6 +316,7 @@ export const buildCvMatchMessages = (input: CvMatchRequestInput): LlmMessages =>
     "  },",
     '  "matchedSkills": ["<requisitos da vaga que o currículo atende>"],',
     '  "missingSkills": ["<requisitos da vaga ausentes ou fracos no currículo>"],',
+    '  "gapDetails": [{ "skill": "<mesmo item de missingSkills>", "status": "missing|partial", "priority": "required|nice_to_have", "kind": "learnable|experience" }],',
     '  "strengths": ["<até 5 pontos fortes do candidato PARA ESTA vaga>"],',
     '  "gaps": ["<até 5 lacunas que podem eliminar o candidato na triagem>"],',
     '  "suggestions": [{ "section": "<Resumo|Experiência|Skills|Projetos|Formação|Geral>", "suggestion": "<ajuste concreto no currículo para esta vaga>" }],',
@@ -388,10 +403,10 @@ const clampScore = (value: unknown): number | null => {
   return Math.min(100, Math.max(0, Math.round(num)));
 };
 
-const cleanText = (value: unknown, max = 600): string =>
+export const cleanText = (value: unknown, max = 600): string =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
 
-const cleanStringList = (value: unknown, maxItems: number, maxChars = 300): string[] =>
+export const cleanStringList = (value: unknown, maxItems: number, maxChars = 300): string[] =>
   Array.isArray(value)
     ? value
         .map((item) => cleanText(item, maxChars))
@@ -401,6 +416,37 @@ const cleanStringList = (value: unknown, maxItems: number, maxChars = 300): stri
 
 export const computeWeightedScore = (scores: Record<CriterionKey, number>): number =>
   Math.round(CV_MATCH_CRITERIA.reduce((acc, c) => acc + scores[c.key] * c.weight, 0));
+
+const pickEnum = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
+  typeof value === "string" && (allowed as readonly string[]).includes(value.trim()) ? (value.trim() as T) : fallback;
+
+/** Normaliza as lacunas classificadas; se a IA não classificou, deriva de missingSkills com padrões conservadores. */
+export const normalizeGapDetails = (rawGaps: unknown, missingSkills: string[]): CvMatchGap[] => {
+  const seen = new Set<string>();
+  const gaps: CvMatchGap[] = [];
+  const push = (gap: CvMatchGap) => {
+    const key = gap.skill.toLowerCase();
+    if (!gap.skill || seen.has(key) || gaps.length >= 12) return;
+    seen.add(key);
+    gaps.push(gap);
+  };
+
+  if (Array.isArray(rawGaps)) {
+    for (const entry of rawGaps) {
+      if (!isRecord(entry)) continue;
+      push({
+        skill: cleanText(entry.skill, 80),
+        status: pickEnum(entry.status, ["missing", "partial"] as const, "missing"),
+        priority: pickEnum(entry.priority, ["required", "nice_to_have"] as const, "required"),
+        kind: pickEnum(entry.kind, ["learnable", "experience"] as const, "learnable"),
+      });
+    }
+  }
+  for (const skill of missingSkills) {
+    push({ skill, status: "missing", priority: "required", kind: "learnable" });
+  }
+  return gaps;
+};
 
 export const normalizeCvMatchResult = (raw: unknown): CvMatchResult => {
   if (!isRecord(raw) || !isRecord(raw.criteria)) {
@@ -430,6 +476,7 @@ export const normalizeCvMatchResult = (raw: unknown): CvMatchResult => {
   });
 
   const score = computeWeightedScore(scores);
+  const missingSkills = cleanStringList(raw.missingSkills, 12, 80);
   const tier = tierForScore(score);
 
   const suggestions: CvMatchSuggestion[] = Array.isArray(raw.suggestions)
@@ -454,7 +501,8 @@ export const normalizeCvMatchResult = (raw: unknown): CvMatchResult => {
     tierLabel: CV_MATCH_TIERS[tier].label,
     criteria,
     matchedSkills: cleanStringList(raw.matchedSkills, 12, 80),
-    missingSkills: cleanStringList(raw.missingSkills, 12, 80),
+    missingSkills,
+    gapDetails: normalizeGapDetails(raw.gapDetails, missingSkills),
     strengths: cleanStringList(raw.strengths, 5),
     gaps: cleanStringList(raw.gaps, 5),
     suggestions,
@@ -658,9 +706,35 @@ export interface CvMatchHandlerDeps {
   fetchImpl?: FetchLike;
 }
 
-const readHeader = (req: Request, name: string): string | undefined => {
+export const readHeader = (req: Request, name: string): string | undefined => {
   const value = req.headers[name];
   return typeof value === "string" ? value : undefined;
+};
+
+/**
+ * Proteções comuns das rotas BYOK: login (trust token), chave válida no header e rate limit por usuário.
+ * Retorna a chave e o usuário quando autorizado; caso contrário já responde com o erro.
+ */
+export const authorizeByokRequest = (
+  req: Request,
+  res: Response,
+  verifyTrust: CvMatchHandlerDeps["verifyTrust"],
+  unauthorizedMessage: string,
+): { username: string; apiKey: string } | null => {
+  res.setHeader("Cache-Control", "no-store");
+
+  const trust = verifyTrust(readHeader(req, "x-trust-token"));
+  if (!trust.valid || !trust.username) {
+    res.status(401).json({ error: unauthorizedMessage, code: "unauthorized" });
+    return null;
+  }
+
+  const apiKey = readHeader(req, "x-llm-api-key")?.trim() ?? "";
+  if (apiKey.length < 8 || apiKey.length > 512 || /\s/.test(apiKey)) {
+    res.status(400).json({ error: "Informe uma chave de API válida do provedor de IA.", code: "missing_api_key" });
+    return null;
+  }
+  return { username: trust.username, apiKey };
 };
 
 export const createCvMatchHandler = ({
@@ -669,19 +743,9 @@ export const createCvMatchHandler = ({
   fetchImpl,
 }: CvMatchHandlerDeps): RequestHandler => {
   return async (req: Request, res: Response) => {
-    res.setHeader("Cache-Control", "no-store");
-
-    const trust = verifyTrust(readHeader(req, "x-trust-token"));
-    if (!trust.valid || !trust.username) {
-      res.status(401).json({ error: "Faça login como desenvolvedor para usar a análise de currículo.", code: "unauthorized" });
-      return;
-    }
-
-    const apiKey = readHeader(req, "x-llm-api-key")?.trim() ?? "";
-    if (apiKey.length < 8 || apiKey.length > 512 || /\s/.test(apiKey)) {
-      res.status(400).json({ error: "Informe uma chave de API válida do provedor de IA.", code: "missing_api_key" });
-      return;
-    }
+    const auth = authorizeByokRequest(req, res, verifyTrust, "Faça login como desenvolvedor para usar a análise de currículo.");
+    if (!auth) return;
+    const { username, apiKey } = auth;
 
     const validation = validateCvMatchRequest(req.body);
     if (!validation.ok) {
@@ -689,7 +753,7 @@ export const createCvMatchHandler = ({
       return;
     }
 
-    if (!rateLimit(trust.username.toLowerCase())) {
+    if (!rateLimit(username.toLowerCase())) {
       res.status(429).json({
         error: "Muitas análises em pouco tempo. Aguarde alguns minutos e tente novamente.",
         code: "rate_limited",
