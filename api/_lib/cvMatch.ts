@@ -304,7 +304,7 @@ export const buildCvMatchMessages = (input: CvMatchRequestInput): LlmMessages =>
     "4. Considere equivalências razoáveis (ex.: experiência com Vue conta parcialmente para React), mas deixe claro quando é parcial.",
     "5. Se a descrição da vaga for curta ou ausente, use título, senioridade e stack e mencione essa limitação no resumo.",
     "6. Escreva tudo em português do Brasil, de forma direta e prática.",
-    '7. Classifique cada lacuna em gapDetails: status "missing" (ausente) ou "partial" (fraca/parcial); priority "required" (obrigatória) ou "nice_to_have" (diferencial); kind "learnable" (conhecimento que se aprende estudando) ou "experience" (vivência, como tempo de experiência, senioridade, liderança ou domínio de negócio).',
+    '7. Classifique cada lacuna em gapDetails: status "missing" (ausente) ou "partial" (fraca/parcial); priority "required" (obrigatória) ou "nice_to_have" (diferencial); kind "learnable" (conhecimento que se aprende estudando) ou "experience" (vivência, como tempo de experiência, senioridade, liderança ou domínio de negócio). Tecnologias, linguagens, ferramentas e plataformas são SEMPRE "learnable", mesmo que a vaga peça experiência com elas.',
     "",
     "Critérios (dê uma nota inteira de 0 a 100 para cada):",
     criteriaLines,
@@ -421,7 +421,9 @@ const pickEnum = <T extends string>(value: unknown, allowed: readonly T[], fallb
   typeof value === "string" && (allowed as readonly string[]).includes(value.trim()) ? (value.trim() as T) : fallback;
 
 /** Normaliza as lacunas classificadas; se a IA não classificou, deriva de missingSkills com padrões conservadores. */
-export const normalizeGapDetails = (rawGaps: unknown, missingSkills: string[]): CvMatchGap[] => {
+export const normalizeGapDetails = (rawGaps: unknown, missingSkills: string[], jobStack: string[] = []): CvMatchGap[] => {
+  // Itens da stack da vaga são tecnologias: nunca viram "vivência", mesmo que a IA classifique assim.
+  const stackKeys = new Set(jobStack.map((item) => item.trim().toLowerCase()));
   const seen = new Set<string>();
   const gaps: CvMatchGap[] = [];
   const push = (gap: CvMatchGap) => {
@@ -434,11 +436,14 @@ export const normalizeGapDetails = (rawGaps: unknown, missingSkills: string[]): 
   if (Array.isArray(rawGaps)) {
     for (const entry of rawGaps) {
       if (!isRecord(entry)) continue;
+      const skill = cleanText(entry.skill, 80);
       push({
-        skill: cleanText(entry.skill, 80),
+        skill,
         status: pickEnum(entry.status, ["missing", "partial"] as const, "missing"),
         priority: pickEnum(entry.priority, ["required", "nice_to_have"] as const, "required"),
-        kind: pickEnum(entry.kind, ["learnable", "experience"] as const, "learnable"),
+        kind: stackKeys.has(skill.toLowerCase())
+          ? "learnable"
+          : pickEnum(entry.kind, ["learnable", "experience"] as const, "learnable"),
       });
     }
   }
@@ -448,7 +453,7 @@ export const normalizeGapDetails = (rawGaps: unknown, missingSkills: string[]): 
   return gaps;
 };
 
-export const normalizeCvMatchResult = (raw: unknown): CvMatchResult => {
+export const normalizeCvMatchResult = (raw: unknown, jobStack: string[] = []): CvMatchResult => {
   if (!isRecord(raw) || !isRecord(raw.criteria)) {
     throw new CvMatchError(502, "invalid_llm_response", "A IA não retornou as notas dos critérios. Tente novamente.");
   }
@@ -502,7 +507,7 @@ export const normalizeCvMatchResult = (raw: unknown): CvMatchResult => {
     criteria,
     matchedSkills: cleanStringList(raw.matchedSkills, 12, 80),
     missingSkills,
-    gapDetails: normalizeGapDetails(raw.gapDetails, missingSkills),
+    gapDetails: normalizeGapDetails(raw.gapDetails, missingSkills, jobStack),
     strengths: cleanStringList(raw.strengths, 5),
     gaps: cleanStringList(raw.gaps, 5),
     suggestions,
@@ -566,6 +571,14 @@ const extractContent = (kind: ProviderKind, data: unknown): string => {
   return isRecord(message) && typeof message.content === "string" ? message.content : "";
 };
 
+/** Resposta cortada pelo limite de saída: pode ser JSON válido, mas incompleto. */
+const isTruncated = (kind: ProviderKind, data: unknown): boolean => {
+  if (!isRecord(data)) return false;
+  if (kind === "anthropic") return data.stop_reason === "max_tokens";
+  const choices = data.choices;
+  return Array.isArray(choices) && isRecord(choices[0]) && choices[0].finish_reason === "length";
+};
+
 export const callLlmProvider = async ({
   provider,
   model,
@@ -606,6 +619,8 @@ export const callLlmProvider = async ({
           { role: "system", content: messages.system },
           { role: "user", content: messages.user },
         ],
+        // Na Groq, o raciocínio do gpt-oss consome o limite de saída e corta o JSON; "low" evita isso.
+        ...(provider === "groq" && model.startsWith("openai/gpt-oss") ? { reasoning_effort: "low" } : {}),
         ...(useJsonMode ? { response_format: { type: "json_object" } } : {}),
       }),
     };
@@ -653,6 +668,13 @@ export const callLlmProvider = async ({
         `Limite de uso/créditos atingido no provedor ${config.label}. ${safeMessage}`.trim(),
       );
     }
+    if (res.status === 413) {
+      throw new CvMatchError(
+        413,
+        "llm_request_too_large",
+        `O currículo e a vaga excedem o limite do seu plano ou modelo no provedor ${config.label}. Reduza o texto do currículo ou use outro modelo.`,
+      );
+    }
     if (res.status === 404 || res.status === 400) {
       throw new CvMatchError(
         400,
@@ -668,6 +690,14 @@ export const callLlmProvider = async ({
     data = await res.json();
   } catch {
     throw new CvMatchError(502, "invalid_llm_response", "Resposta inválida do provedor de IA.");
+  }
+
+  if (isTruncated(config.kind, data)) {
+    throw new CvMatchError(
+      502,
+      "llm_truncated",
+      "A resposta da IA foi cortada antes do fim. Tente novamente ou use outro modelo.",
+    );
   }
 
   const content = extractContent(config.kind, data);
@@ -770,7 +800,7 @@ export const createCvMatchHandler = ({
         messages: buildCvMatchMessages(input),
         fetchImpl,
       });
-      const result = normalizeCvMatchResult(parseLlmJson(content));
+      const result = normalizeCvMatchResult(parseLlmJson(content), input.job.stack);
       res.json({ result, provider: input.provider, model: input.model });
     } catch (err: unknown) {
       if (err instanceof CvMatchError) {
